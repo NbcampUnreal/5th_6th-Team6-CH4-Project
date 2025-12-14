@@ -2,26 +2,60 @@
 
 
 #include "Character/MoveManager.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/PlayerState.h"
+#include "Engine/Engine.h"
+#include "Character/Squirrel.h"
+#include "EngineUtils.h"
 
-// Sets default values
 AMoveManager::AMoveManager()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
-
+    bReplicates = true;
 }
 
-// Called when the game starts or when spawned
-void AMoveManager::BeginPlay()
+void AMoveManager::OnClientWInput(APlayerController* PC, const FVector2D& MoveInput)
 {
-	Super::BeginPlay();
-	
+    // 클라이언트 정보
+
+    int32 PlayerId = -1;
+
+    if (PC && PC->PlayerState)
+    {
+        PlayerId = PC->PlayerState->GetPlayerId(); // 클라이언트 번호
+    }
+
+    // MoveInput 값 확인
+    FString Msg = FString::Printf(
+        TEXT("[MoveManager] Player: %d / | X=%.2f, Y=%.2f"),
+        PlayerId,        // int32 → %d
+        MoveInput.X,
+        MoveInput.Y
+    );
+
+    // 서버 화면 디버그 출력
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Yellow, Msg);
+        UE_LOG(LogTemp, Warning, TEXT("%s"), *Msg);
+    }
+
+    // 다람쥐들에게 Move 호출
+    for (TActorIterator<ASquirrel> It(GetWorld()); It; ++It)
+    {
+        ASquirrel* Squirrel = *It;
+        if (Squirrel)
+        {
+            Squirrel->Move(MoveInput);
+        }
+    }
+    // 클라이언트 화면에도 멀티캐스트
+    Multicast_DebugWInput(Msg);
 }
 
-// Called every frame
-void AMoveManager::Tick(float DeltaTime)
+void AMoveManager::Multicast_DebugWInput_Implementation(const FString& Msg)
 {
-	Super::Tick(DeltaTime);
-
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Cyan, FString::Printf(TEXT("[Client] %s"), *Msg));
+    }
 }
-

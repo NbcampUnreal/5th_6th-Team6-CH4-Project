@@ -15,12 +15,10 @@ public:
 	// Sets default values for this actor's properties
 	AMoveManager();
 
-protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
+	UFUNCTION()
+	void OnClientWInput(APlayerController* PC, const FVector2D& MoveInput);
 
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_DebugWInput(const FString& Msg);
 
 };
