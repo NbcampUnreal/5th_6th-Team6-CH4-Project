@@ -21,4 +21,7 @@ public:
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_DebugWInput(const FString& Msg);
 
+	UPROPERTY()
+	USceneComponent* Root;
+
 };

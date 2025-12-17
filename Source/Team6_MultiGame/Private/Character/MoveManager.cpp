@@ -10,7 +10,11 @@
 
 AMoveManager::AMoveManager()
 {
+
     bReplicates = true;
+
+    Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
+    RootComponent = Root;
 }
 
 void AMoveManager::OnClientWInput(APlayerController* PC, const FVector2D& MoveInput)
@@ -40,12 +44,15 @@ void AMoveManager::OnClientWInput(APlayerController* PC, const FVector2D& MoveIn
     }
 
     // 다람쥐들에게 Move 호출
-    for (TActorIterator<ASquirrel> It(GetWorld()); It; ++It)
+    if (HasAuthority()) // 서버에서만
     {
-        ASquirrel* Squirrel = *It;
-        if (Squirrel)
+        for (TActorIterator<ASquirrel> It(GetWorld()); It; ++It)
         {
-            Squirrel->Move(MoveInput);
+            ASquirrel* Squirrel = *It;
+            if (Squirrel)
+            {
+                Squirrel->Move(MoveInput);
+            }
         }
     }
     // 클라이언트 화면에도 멀티캐스트
@@ -59,3 +66,4 @@ void AMoveManager::Multicast_DebugWInput_Implementation(const FString& Msg)
         GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Cyan, FString::Printf(TEXT("[Client] %s"), *Msg));
     }
 }
+

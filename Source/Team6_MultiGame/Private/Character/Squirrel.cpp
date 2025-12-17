@@ -4,6 +4,8 @@
 #include "Character/Squirrel.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 // Sets default values
 ASquirrel::ASquirrel()
@@ -29,9 +31,9 @@ ASquirrel::ASquirrel()
 
     // ★★★★★ 클라이언트가 카메라 시뮬레이션 하도록 ★★★★★
 
-
+   
     bReplicates = true;
-
+   
 }
 
 // Called when the game starts or when spawned
@@ -74,5 +76,15 @@ void ASquirrel::Move(const FVector2D& MoveInput)
         // 캐릭터의 오른쪽 방향으로 Y축 이동
         AddMovementInput(GetActorRightVector(), MoveInput.Y);
     }
+
 }
 
+void ASquirrel::Look(const FVector2D& value)
+{
+
+    // X는 좌우 회전 (Yaw), Y는 상하 회전 (Pitch)
+    // 좌우 회전
+    AddControllerYawInput(value.X);
+    // 상하 회전
+    AddControllerPitchInput(value.Y);
+}

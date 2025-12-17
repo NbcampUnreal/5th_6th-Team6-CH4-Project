@@ -32,6 +32,9 @@ public:
 	UFUNCTION()
 	void Move(const FVector2D& Value);
 
+	UFUNCTION()
+	void Look(const FVector2D& value);
+
 	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	USpringArmComponent* CameraBoom;

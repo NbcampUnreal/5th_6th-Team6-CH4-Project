@@ -7,15 +7,15 @@
 #include "InputAction.h"
 #include "InputMappingContext.h"
 #include "Character/Squirrel.h"
-#include "PlayerController_WASD.generated.h"
+#include "PlayerController_Mouse.generated.h"
 
 /**
- * 
+ *
  */
 UCLASS()
-class TEAM6_MULTIGAME_API APlayerController_WASD : public APlayerController
+class TEAM6_MULTIGAME_API APlayerController_Mouse : public APlayerController
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 
 public:
@@ -24,25 +24,17 @@ public:
 
     virtual void SetupInputComponent() override;
 
-    void OnMoveForwardTriggered(const FInputActionValue& Value);
+    void OnMouseTriggered(const FInputActionValue& Value);
 
+  //다람쥐 빙의 요청
+    UFUNCTION(Server, Reliable)
+    void Server_RequestPossessSquirrel();
 protected:
 
 
-    UFUNCTION(Server, Reliable)
-    void Server_SendWInput(FVector2D MoveInput);
-
-    // 타이머 핸들
-    FTimerHandle TimerHandle_CheckSquirrel;
-    FTimerHandle TimerHandle_UpdateViewTarget;
 
 
 
-    // 다람쥐와 카메라 확인
-    void CheckSquirrelAndCamera();
-
-    // 다람쥐 시점 업데이트
-    void UpdateViewTargetToSquirrel();
 
     // 찾은 다람쥐와 카메라 저장
     ASquirrel* TargetSquirrel = nullptr;
@@ -53,8 +45,9 @@ protected:
 
 public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-    UInputMappingContext* ClientIMC;
+    UInputMappingContext* ClientMouseIMC;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-    UInputAction* IA_MoveForward;
+    UInputAction* IA_Mouse;
 };
+
