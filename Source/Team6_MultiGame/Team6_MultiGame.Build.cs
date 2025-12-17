@@ -20,8 +20,6 @@ public class Team6_MultiGame : ModuleRules
             "GameplayTasks"
         });
 
-		PrivateDependencyModuleNames.AddRange(new string[] { });
-
         PublicIncludePaths.AddRange(new string[] { "Team6_MultiGame" });
 
         // Uncomment if you are using Slate UI
