@@ -30,4 +30,6 @@ protected:
 		bool bFromSweep,
 		const FHitResult& SweepResult
 	);
+
+	virtual void OnPickedUp(class ACharacter* Character);
 };
