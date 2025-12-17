@@ -17,7 +17,8 @@ public class Team6_MultiGame : ModuleRules
             "EnhancedInput",
             "NavigationSystem",
             "AIModule",
-            "GameplayTasks"
+            "GameplayTasks",
+            "UMG"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[] { });
