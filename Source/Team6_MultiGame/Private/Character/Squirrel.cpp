@@ -2,34 +2,25 @@
 
 
 #include "Character/Squirrel.h"
-#include "Camera/CameraComponent.h"
-#include "GameFramework/SpringArmComponent.h"
-#include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Character/SharedCamera.h"
+#include "Net/UnrealNetwork.h"
 
 // Sets default values
 ASquirrel::ASquirrel()
 {
     PrimaryActorTick.bCanEverTick = true;
 
-    // ★★★★★ 이 두 줄이 문제의 90% ★★★★★
+    // 캐릭터는 컨트롤러 회전에 의존하지 않음
     bUseControllerRotationPitch = false;
-    bUseControllerRotationYaw = true;   // 캐릭터가 컨트롤러 yaw 따라 돎 (필수)
+    bUseControllerRotationYaw = false;
     bUseControllerRotationRoll = false;
 
-    CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
-    CameraBoom->SetupAttachment(RootComponent);
-    CameraBoom->TargetArmLength = 400.f;
-    CameraBoom->bUsePawnControlRotation = true;   // ← Pawn 회전 사용
-    CameraBoom->bInheritPitch = true;
-    CameraBoom->bInheritYaw = true;
-    CameraBoom->bInheritRoll = true;
 
-    FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-    FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
-    FollowCamera->bUsePawnControlRotation = false;  // ← 여기 false!
+    // 이동 방향은 CharacterMovement가 처리
+    GetCharacterMovement()->bOrientRotationToMovement = true;
+    GetCharacterMovement()->RotationRate = FRotator(0.f, 720.f, 0.f);
 
-    // ★★★★★ 클라이언트가 카메라 시뮬레이션 하도록 ★★★★★
 
    
     bReplicates = true;
@@ -40,7 +31,20 @@ ASquirrel::ASquirrel()
 void ASquirrel::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+    // ★ 서버에서만 SharedCamera 생성 및 Attach ★
+    if (HasAuthority())
+    {
+        SharedCamera = GetWorld()->SpawnActor<ASharedCamera>();
+
+        if (SharedCamera)
+        {
+            SharedCamera->AttachToActor(
+                this,
+                FAttachmentTransformRules::SnapToTargetNotIncludingScale
+            );
+        }
+    }
 }
 
 // Called every frame
@@ -69,22 +73,32 @@ void ASquirrel::Move(const FVector2D& MoveInput)
     {
         // 캐릭터가 바라보는 방향(정면)으로 X축 이동
         AddMovementInput(GetActorForwardVector(), MoveInput.X);
+        GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green,
+            FString::Printf(TEXT("Input X")));
     }
 
     if (!FMath::IsNearlyZero(MoveInput.Y))
     {
         // 캐릭터의 오른쪽 방향으로 Y축 이동
         AddMovementInput(GetActorRightVector(), MoveInput.Y);
+        GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green,
+            FString::Printf(TEXT("Input Y")));
     }
 
 }
 
-void ASquirrel::Look(const FVector2D& value)
+void ASquirrel::OnRep_SharedCamera()
 {
+    if (SharedCamera)
+    {
+        SharedCamera->AttachToActor(this, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+    }
+}
 
-    // X는 좌우 회전 (Yaw), Y는 상하 회전 (Pitch)
-    // 좌우 회전
-    AddControllerYawInput(value.X);
-    // 상하 회전
-    AddControllerPitchInput(value.Y);
+void ASquirrel::GetLifetimeReplicatedProps(
+    TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+    DOREPLIFETIME(ASquirrel, SharedCamera);
 }

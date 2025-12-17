@@ -8,10 +8,8 @@
 #include "InputMappingContext.h"
 #include "Character/Squirrel.h"
 #include "PlayerController_WASD.generated.h"
+/*
 
-/**
- * 
- */
 UCLASS()
 class TEAM6_MULTIGAME_API APlayerController_WASD : public APlayerController
 {
@@ -58,3 +56,4 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     UInputAction* IA_MoveForward;
 };
+*/

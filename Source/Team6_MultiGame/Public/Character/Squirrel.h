@@ -6,8 +6,7 @@
 #include "GameFramework/Character.h"
 #include "Squirrel.generated.h"
 
-class USpringArmComponent;
-class UCameraComponent;
+class ASharedCamera;
 
 UCLASS()
 class TEAM6_MULTIGAME_API ASquirrel : public ACharacter
@@ -32,14 +31,15 @@ public:
 	UFUNCTION()
 	void Move(const FVector2D& Value);
 
+	UPROPERTY(ReplicatedUsing = OnRep_SharedCamera)
+	class ASharedCamera* SharedCamera;
+
+	UFUNCTION(BlueprintCallable)
+	class ASharedCamera* GetSharedCamera() const { return SharedCamera; }
+
 	UFUNCTION()
-	void Look(const FVector2D& value);
+	void OnRep_SharedCamera();
+	virtual void GetLifetimeReplicatedProps(
+		TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	/** Camera boom positioning the camera behind the character */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
-	USpringArmComponent* CameraBoom;
-
-	/** Follow camera */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
-	UCameraComponent* FollowCamera;
 };
