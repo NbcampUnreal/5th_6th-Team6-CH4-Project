@@ -6,153 +6,263 @@
 #include "EnhancedInputComponent.h"
 #include "Net/UnrealNetwork.h"
 
-#include "Character/SharedCamera.h"
 #include "Character/Squirrel.h"
+#include "Character/Controller/SquirrelAIController.h"
 
 AMainPlayerController::AMainPlayerController()
 {
-	bReplicates = true;
+	bReplicates = false;
 }
 
 void AMainPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// 입력 매핑은 로컬에서만
-	if (IsLocalController())
+	// ★ 중요: 입력 매핑은 로컬 컨트롤러에서만
+	if (!IsLocalController())
 	{
-		if (ULocalPlayer* LP = GetLocalPlayer())
+		UE_LOG(LogTemp, Warning, TEXT("[BeginPlay] Not local controller, skipping input setup."));
+		return;
+	}
+
+	else
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[BeginPlay][LOCAL] Controller=%s Role(Init)=%s"),
+			*GetName(),
+			PlayerRole == EPlayerRole::Camera ? TEXT("Camera") : TEXT("Move"));
+	}
+
+	if (ULocalPlayer* LP = GetLocalPlayer())
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
+			ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LP))
 		{
-			if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
-				ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LP))
+			Subsystem->ClearAllMappings();
+
+			if (InputMappingContext)
 			{
-				Subsystem->ClearAllMappings();
-				if (IMC)
-				{
-					Subsystem->AddMappingContext(IMC, 0);
-				}
+				Subsystem->AddMappingContext(InputMappingContext, 0);
+				UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: InputMappingContext is Succeed"));
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: InputMappingContext is NULL"));
 			}
 		}
 	}
 }
 
+/* ===================== Input Binding ===================== */
 void AMainPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
 
-	if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(InputComponent))
+	// ★ 서버 컨트롤러는 입력 바인딩 안 함
+	if (!IsLocalController())
 	{
-		if (IA_Move)
-		{
-			EIC->BindAction(
-				IA_Move,
-				ETriggerEvent::Triggered,
-				this,
-				&AMainPlayerController::OnMoveTriggered
-			);
-		}
+		UE_LOG(LogTemp, Warning, TEXT("Server controller: skipping input binding."));
+		return;
+	}
 
-		if (IA_Look)
-		{
-			EIC->BindAction(
-				IA_Look,
-				ETriggerEvent::Triggered,
-				this,
-				&AMainPlayerController::OnTurnTriggered
-			);
-		}
+	UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(InputComponent);
+	if (!EIC)
+	{
+		UE_LOG(LogTemp, Error, TEXT("MainPlayerController: EnhancedInputComponent missing"));
+		return;
+	}
+
+	if (IA_Move)
+	{
+		EIC->BindAction(
+			IA_Move,
+			ETriggerEvent::Triggered,
+			this,
+			&AMainPlayerController::OnMoveTriggered
+		);
+		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Move is Succeed"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Move is NULL"));
+	}
+
+	if (IA_Look)
+	{
+		EIC->BindAction(
+			IA_Look,
+			ETriggerEvent::Triggered,
+			this,
+			&AMainPlayerController::OnLookTriggered
+		);
+		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Look is Succeed"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Look is NULL"));
 	}
 }
 
 /* ===================== Role ===================== */
-
-void AMainPlayerController::SetRole(EPlayerRole InRole)
+void AMainPlayerController::SetRole(EPlayerRole NewRole)
 {
-	PlayerRole = InRole;
+	if (!HasAuthority())
+		return;
+
+	PlayerRole = NewRole;
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[Server][SetRole] %s assigned Role=%s"),
+		*GetName(),
+		PlayerRole == EPlayerRole::Camera ? TEXT("Camera") : TEXT("Move"));
+	
+	
 }
-
-/* ===================== Shared Camera ===================== */
-
-void AMainPlayerController::SetSharedCamera(ASharedCamera* InCamera)
+void AMainPlayerController::OnRep_PlayerRole()
 {
-	// 서버에서만 호출됨
-	SharedCamera = InCamera;
-}
-
-void AMainPlayerController::OnRep_SharedCamera()
-{
-	if (IsLocalController() && SharedCamera)
+	if (IsLocalController())
 	{
-		SetViewTarget(SharedCamera);
+		UE_LOG(LogTemp, Warning,
+			TEXT("[Client][OnRep_PlayerRole] %s Role=%s"),
+			*GetName(),
+			PlayerRole == EPlayerRole::Camera ? TEXT("Camera") : TEXT("Move"));
 	}
+	ApplyPlayerRole();
 }
-
-/* ===================== Target Character ===================== */
 
 void AMainPlayerController::SetTargetSquirrel(ASquirrel* InSquirrel)
 {
+	if (!HasAuthority()) return;
+
 	TargetSquirrel = InSquirrel;
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[Server] TargetSquirrel set: %s"),
+		TargetSquirrel ? *TargetSquirrel->GetName() : TEXT("NULL"));
+
+	// ★ 역할이 이미 정해져 있으면 즉시 반영
+	ApplyPlayerRole();
 }
 
-/* ===================== Input Handling ===================== */
+
+
+void AMainPlayerController::OnRep_TargetSquirrel()
+{
+	ApplyPlayerRole();
+}
+
+void AMainPlayerController::ApplyPlayerRole()
+{
+	if (!IsLocalController())
+		return;
+
+	if (!TargetSquirrel)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[ApplyRole] TargetSquirrel not valid yet"));
+		return;
+	}
+
+	// AIController 체크 제거
+	SetViewTargetWithBlend(
+		TargetSquirrel,
+		0.f,
+		EViewTargetBlendFunction::VTBlend_Linear
+	);
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[ApplyRole] ViewTarget set to %s | Role=%s"),
+		*TargetSquirrel->GetName(),
+		PlayerRole == EPlayerRole::Camera ? TEXT("Camera") : TEXT("Move"));
+}
+
+
+/* ===================== Input ===================== */
 
 void AMainPlayerController::OnMoveTriggered(const FInputActionValue& Value)
 {
 	if (PlayerRole != EPlayerRole::Move)
+	{
 		return;
+	}
 
-	FVector2D MoveInput = Value.Get<FVector2D>();
-	Server_SendMoveInput(MoveInput);
+	if (!TargetSquirrel)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Move input but TargetSquirrel is NULL"));
+		return;
+	}
+
+	Server_SendMove(Value.Get<FVector2D>());
 }
 
-void AMainPlayerController::OnTurnTriggered(const FInputActionValue& Value)
+void AMainPlayerController::OnLookTriggered(const FInputActionValue& Value)
 {
 	if (PlayerRole != EPlayerRole::Camera)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Not Camera Role"));
 		return;
 	}
-	if (!SharedCamera)
+
+	if (!TargetSquirrel)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("SharedCamera NULL!"));
+		UE_LOG(LogTemp, Warning, TEXT("Look input but TargetSquirrel is NULL"));
 		return;
 	}
-	FVector2D LookInput = Value.Get<FVector2D>();
-	GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Blue, FString::Printf(TEXT("Turn Input: %s"), *LookInput.ToString()));
-	Server_TurnCamera(LookInput);
+	UE_LOG(LogTemp, Warning, TEXT("Clinent Mouse Look"));
+	Server_SendLook(Value.Get<FVector2D>());
 }
 
 /* ===================== Server RPC ===================== */
 
-void AMainPlayerController::Server_SendMoveInput_Implementation(FVector2D MoveInput)
+void AMainPlayerController::Server_SendMove_Implementation(const FVector2D& MoveInput)
 {
-	if (!ensure(TargetSquirrel))
+	if (TargetSquirrel)
 	{
-		return;
+		TargetSquirrel->Move(MoveInput);
 	}
-
-	TargetSquirrel->Move(MoveInput);
 }
 
-void AMainPlayerController::Server_TurnCamera_Implementation(FVector2D LookInput)
+void AMainPlayerController::Server_SendLook_Implementation(const FVector2D& LookInput)
 {
-	if (PlayerRole != EPlayerRole::Camera || !SharedCamera)
+	if (!TargetSquirrel)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Server: Invalid Role or No Camera"));
+		UE_LOG(LogTemp, Error,
+			TEXT("[Server_SendLook] TargetSquirrel is NULL | PC=%s"),
+			*GetName());
 		return;
 	}
-	SharedCamera->Server_AddLook(LookInput);
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[Server_SendLook] TargetSquirrel=%s"),
+		*TargetSquirrel->GetName());
+
+	if (ASquirrelAIController* AI =
+		Cast<ASquirrelAIController>(TargetSquirrel->GetController()))
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[Server_SendLook] AIController=%s"),
+			*AI->GetName());
+
+		AI->AddCameraInput(LookInput);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error,
+			TEXT("[Server_SendLook] Controller is not SquirrelAIController | Controller=%s"),
+			TargetSquirrel->GetController()
+			? *TargetSquirrel->GetController()->GetName()
+			: TEXT("NULL"));
+	}
 }
 
 /* ===================== Replication ===================== */
 
 void AMainPlayerController::GetLifetimeReplicatedProps(
-	TArray<FLifetimeProperty>& OutLifetimeProps) const
+	TArray<FLifetimeProperty>& OutLifetimeProps
+) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AMainPlayerController, PlayerRole);
-	DOREPLIFETIME(AMainPlayerController, SharedCamera);
-	DOREPLIFETIME(AMainPlayerController, TargetSquirrel);
+	//DOREPLIFETIME(AMainPlayerController, TargetSquirrel);
 
 }

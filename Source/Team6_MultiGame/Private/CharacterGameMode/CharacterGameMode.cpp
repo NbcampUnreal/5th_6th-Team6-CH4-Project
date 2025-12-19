@@ -2,16 +2,16 @@
 
 
 #include "CharacterGameMode/CharacterGameMode.h"
-#include "Character/SharedCamera.h"
+
 #include "Character/Controller/MainPlayerController.h"
 #include "Character/Squirrel.h"
-#include "Engine/World.h"            // GetWorld()
 #include "EngineUtils.h"             // TActorIterator
 
 ACharacterGameMode::ACharacterGameMode()
 {
     DefaultPawnClass = nullptr;
-    
+    PlayerIndex = 0;
+    TargetSquirrel = nullptr;
 }
 
 //void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
@@ -76,23 +76,16 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
     }
 
     // 다람쥐 있으면 카메라 가져와서 설정
-    if (TargetSquirrel)
+    if (!TargetSquirrel)
     {
-        SharedCamera = TargetSquirrel->GetSharedCamera();
-        if (SharedCamera)
-        {
-            PC->SetTargetSquirrel(TargetSquirrel);
-            PC->SetSharedCamera(SharedCamera);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Error, TEXT("No SharedCamera on TargetSquirrel!"));
-        }
+        UE_LOG(LogTemp, Error, TEXT("GameMode: TargetSquirrel not found"));
+        return;
     }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("No TargetSquirrel found!"));
-    }
+
+    /* =========================
+     * PlayerController에 전달
+     * ========================= */
+    PC->SetTargetSquirrel(TargetSquirrel);
 
     PlayerIndex++;
 }

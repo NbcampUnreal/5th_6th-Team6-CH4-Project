@@ -10,16 +10,17 @@
 /**
  * 
  */
-class ASharedCamera;
+
 class ASquirrel;
 class UInputMappingContext;
 class UInputAction;
+class ASquirrelAIController;
 
 UENUM(BlueprintType)
 enum class EPlayerRole : uint8
 {
-	Camera,
-	Move
+	Move ,
+	Camera  
 };
 
 UCLASS()
@@ -30,42 +31,47 @@ class TEAM6_MULTIGAME_API AMainPlayerController : public APlayerController
 public:
 	AMainPlayerController();
 
-protected:
-	virtual void BeginPlay() override;
-	virtual void SetupInputComponent() override;
-	virtual void GetLifetimeReplicatedProps(
-		TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-
-	/* ===================== Role ===================== */
-
-	UPROPERTY(Replicated)
-	EPlayerRole PlayerRole;
-
-public:
-	void SetRole(EPlayerRole InRole);
-
-	/* ===================== Shared Camera ===================== */
-
-	UPROPERTY(ReplicatedUsing = OnRep_SharedCamera)
-	ASharedCamera* SharedCamera;
-
-	UFUNCTION()
-	void OnRep_SharedCamera();
-
-	// 서버 전용 세터
-	void SetSharedCamera(ASharedCamera* InCamera);
-
-	/* ===================== Target Character ===================== */
-
-	UPROPERTY(Replicated)
-	ASquirrel* TargetSquirrel;
-
+	/* ===== Server Only ===== */
+	void SetRole(EPlayerRole NewRole);
 	void SetTargetSquirrel(ASquirrel* InSquirrel);
 
-	/* ===================== Input ===================== */
+protected:
+	/* ===================== Lifecycle ===================== */
+	virtual void BeginPlay() override;
+	virtual void SetupInputComponent() override;
 
+	/* ===================== Role ===================== */
+	UPROPERTY(ReplicatedUsing = OnRep_PlayerRole)
+	EPlayerRole PlayerRole = EPlayerRole::Move;
+
+	UFUNCTION()
+	void OnRep_PlayerRole();
+
+	void ApplyPlayerRole();
+	FTimerHandle ApplyRoleTimerHandle;
+
+	/* ===================== Target ===================== */
+	UPROPERTY(ReplicatedUsing = OnRep_TargetSquirrel)
+	ASquirrel* TargetSquirrel = nullptr;
+
+	UFUNCTION()
+	void OnRep_TargetSquirrel();
+
+	/* ===================== Input ===================== */
+	void OnMoveTriggered(const FInputActionValue& Value);
+	void OnLookTriggered(const FInputActionValue& Value);
+
+	/* ===================== Server RPC ===================== */
+	UFUNCTION(Server, Reliable)
+	void Server_SendMove(const FVector2D& MoveInput);
+
+	UFUNCTION(Server, Reliable)
+	void Server_SendLook(const FVector2D& LookInput);
+
+public:
+	/* ===================== Input Assets ===================== */
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
-	UInputMappingContext* IMC;
+	UInputMappingContext* InputMappingContext;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	UInputAction* IA_Move;
@@ -73,14 +79,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	UInputAction* IA_Look;
 
-	void OnMoveTriggered(const FInputActionValue& Value);
-	void OnTurnTriggered(const FInputActionValue& Value);
-
-	/* ===================== Server RPC ===================== */
-
-	UFUNCTION(Server, Reliable)
-	void Server_SendMoveInput(FVector2D MoveInput);
-
-	UFUNCTION(Server, Reliable)
-	void Server_TurnCamera(FVector2D LookInput);
+protected:
+	/* ===================== Replication ===================== */
+	virtual void GetLifetimeReplicatedProps(
+		TArray<FLifetimeProperty>& OutLifetimeProps
+	) const override;
 };

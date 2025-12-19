@@ -6,7 +6,6 @@
 #include "GameFramework/GameMode.h"
 #include "CharacterGameMode.generated.h"
 
-class ASharedCamera;
 class ASquirrel;
 /**
  * 
@@ -27,9 +26,7 @@ public:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 
 protected:
-	UPROPERTY()
-	ASharedCamera* SharedCamera;
-
+	
 	// 레벨에 배치된 다람쥐
 	UPROPERTY()
 	ASquirrel* TargetSquirrel;
