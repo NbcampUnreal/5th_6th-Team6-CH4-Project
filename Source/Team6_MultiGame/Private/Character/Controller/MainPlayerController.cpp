@@ -263,6 +263,6 @@ void AMainPlayerController::GetLifetimeReplicatedProps(
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AMainPlayerController, PlayerRole);
-	//DOREPLIFETIME(AMainPlayerController, TargetSquirrel);
+	DOREPLIFETIME(AMainPlayerController, TargetSquirrel);
 
 }
