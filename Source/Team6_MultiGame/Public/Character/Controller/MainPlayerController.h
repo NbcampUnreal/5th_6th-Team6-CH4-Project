@@ -52,7 +52,7 @@ protected:
 
 	/* ===================== Target ===================== */
 	UPROPERTY(ReplicatedUsing = OnRep_TargetSquirrel)
-	ASquirrel* TargetSquirrel = nullptr;
+	ASquirrel* TargetSquirrel;
 
 	UFUNCTION()
 	void OnRep_TargetSquirrel();
@@ -65,8 +65,8 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void Server_SendMove(const FVector2D& MoveInput);
 
-	UFUNCTION(Server, Reliable)
-	void Server_SendLook(const FVector2D& LookInput);
+	UFUNCTION(Server, Reliable)                 // [ADD]
+	void Server_SendLook(const FVector2D& LookInput); // [ADD]
 
 public:
 	/* ===================== Input Assets ===================== */

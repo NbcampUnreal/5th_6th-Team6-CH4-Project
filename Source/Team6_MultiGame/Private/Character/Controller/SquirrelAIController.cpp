@@ -23,14 +23,7 @@ void ASquirrelAIController::OnPossess(APawn* InPawn)
 		*GetName(),
 		InPawn ? *InPawn->GetName() : TEXT("NULL"),
 		HasAuthority() ? TEXT("Server") : TEXT("Client"));
-	// ★ 초기 회전값 동기화
-	 //    (AIController의 내부 회전 캐시)
-	if (ASquirrel* Squirrel = Cast<ASquirrel>(InPawn))
-	{
-		const FRotator InitRot = InPawn->GetActorRotation();
-		SetControlRotation(InitRot);
-		Squirrel->ReplicatedViewRotation = InitRot;
-	}
+	
 }
 
 void ASquirrelAIController::AddCameraInput(const FVector2D& LookInput)
@@ -70,8 +63,5 @@ void ASquirrelAIController::AddCameraInput(const FVector2D& LookInput)
 	// ★ ControlRotation은 "계산 캐시"로만 유지
 	SetControlRotation(NewRotation);
 
-	if (ASquirrel* Squirrel = Cast<ASquirrel>(GetPawn()))
-	{
-		Squirrel->ReplicatedViewRotation = NewRotation;
-	}
+	
 }

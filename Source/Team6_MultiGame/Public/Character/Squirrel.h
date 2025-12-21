@@ -18,15 +18,10 @@ public:
 	// Sets default values for this character's properties
 	ASquirrel();
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override; 
 
-	UPROPERTY(Replicated)
-	FRotator ReplicatedViewRotation;
-
-	virtual FRotator GetViewRotation() const override;
-
-	virtual void GetLifetimeReplicatedProps(
-		TArray<FLifetimeProperty>& OutLifetimeProps
-	) const override;
+	// === Look 적용(서버 권위) ===
+	void ApplyLook_ServerAuth(const FVector2D& LookInput); 
 
 protected:
 	// Called when the game starts or when spawned
@@ -50,6 +45,11 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	class UCameraComponent* Camera;
 
+	// === Replicated View Rotation (카메라 회전 진실값) ===
+	UPROPERTY(ReplicatedUsing = OnRep_ViewRot) // [ADD]
+		FRotator RepViewRot;                    // [ADD]
 
+	UFUNCTION()                              // [ADD]
+		void OnRep_ViewRot();                    // [ADD]
 
 };

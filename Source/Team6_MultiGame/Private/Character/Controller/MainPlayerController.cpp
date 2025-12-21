@@ -11,7 +11,7 @@
 
 AMainPlayerController::AMainPlayerController()
 {
-	bReplicates = false;
+	bReplicates = true;
 }
 
 void AMainPlayerController::BeginPlay()
@@ -191,24 +191,28 @@ void AMainPlayerController::OnMoveTriggered(const FInputActionValue& Value)
 		UE_LOG(LogTemp, Warning, TEXT("Move input but TargetSquirrel is NULL"));
 		return;
 	}
-
+	UE_LOG(LogTemp, Warning,
+		TEXT("[OnMoveTriggered]"));
 	Server_SendMove(Value.Get<FVector2D>());
+	
 }
 
 void AMainPlayerController::OnLookTriggered(const FInputActionValue& Value)
 {
 	if (PlayerRole != EPlayerRole::Camera)
-	{
 		return;
-	}
 
 	if (!TargetSquirrel)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Look input but TargetSquirrel is NULL"));
 		return;
-	}
-	UE_LOG(LogTemp, Warning, TEXT("Clinent Mouse Look"));
-	Server_SendLook(Value.Get<FVector2D>());
+
+	const FVector2D Look = Value.Get<FVector2D>();
+
+	// [REMOVE] 로컬 ControlRotation 누적 (이 방식은 다른 클라 동기화 안 됨)
+	// AddYawInput(Look.X);
+	// AddPitchInput(-Look.Y);
+
+	// [ADD] 서버로 Look 델타 전송
+	Server_SendLook(FVector2D(Look.X, -Look.Y)); // [ADD] (Pitch 부호는 기존 로직 유지)
 }
 
 /* ===================== Server RPC ===================== */
@@ -220,37 +224,12 @@ void AMainPlayerController::Server_SendMove_Implementation(const FVector2D& Move
 		TargetSquirrel->Move(MoveInput);
 	}
 }
-
-void AMainPlayerController::Server_SendLook_Implementation(const FVector2D& LookInput)
+// [ADD] 서버 RPC 구현
+void AMainPlayerController::Server_SendLook_Implementation(const FVector2D& LookInput) // [ADD]
 {
-	if (!TargetSquirrel)
+	if (TargetSquirrel)
 	{
-		UE_LOG(LogTemp, Error,
-			TEXT("[Server_SendLook] TargetSquirrel is NULL | PC=%s"),
-			*GetName());
-		return;
-	}
-
-	UE_LOG(LogTemp, Warning,
-		TEXT("[Server_SendLook] TargetSquirrel=%s"),
-		*TargetSquirrel->GetName());
-
-	if (ASquirrelAIController* AI =
-		Cast<ASquirrelAIController>(TargetSquirrel->GetController()))
-	{
-		UE_LOG(LogTemp, Warning,
-			TEXT("[Server_SendLook] AIController=%s"),
-			*AI->GetName());
-
-		AI->AddCameraInput(LookInput);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error,
-			TEXT("[Server_SendLook] Controller is not SquirrelAIController | Controller=%s"),
-			TargetSquirrel->GetController()
-			? *TargetSquirrel->GetController()->GetName()
-			: TEXT("NULL"));
+		TargetSquirrel->ApplyLook_ServerAuth(LookInput); // [ADD]
 	}
 }
 

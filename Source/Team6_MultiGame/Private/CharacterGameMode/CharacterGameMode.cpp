@@ -14,56 +14,19 @@ ACharacterGameMode::ACharacterGameMode()
     TargetSquirrel = nullptr;
 }
 
-//void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
-//{
-//    Super::PostLogin(NewPlayer);
-//
-//    AMainPlayerController* PC = Cast<AMainPlayerController>(NewPlayer);
-//    if (!PC) return;
-//
-//
-//    if (PlayerIndex == 0)
-//    {
-//        PC->SetRole(EPlayerRole::Camera);
-//    }
-//    else
-//    {
-//        PC->SetRole(EPlayerRole::Move);
-//    }
-//
-//    // ?? 항상 호출 (중복 안전)
-//    PC->SetSharedCamera(SharedCamera);
-//
-//    // 레벨에 배치된 Squirrel 가져오기
-//    if (!TargetSquirrel)
-//    {
-//        for (TActorIterator<ASquirrel> It(GetWorld()); It; ++It)
-//        {
-//            TargetSquirrel = *It;
-//            break; // 첫 번째 다람쥐만 사용
-//        }
-//    }
-//
-//    // PlayerController에 TargetSquirrel 주입
-//    PC->SetTargetSquirrel(TargetSquirrel);
-//    PlayerIndex++;
-//}
 
 void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
 {
     Super::PostLogin(NewPlayer);
+
     AMainPlayerController* PC = Cast<AMainPlayerController>(NewPlayer);
     if (!PC) return;
 
-    // 역할 할당
-    if (PlayerIndex == 0)
-    {
-        PC->SetRole(EPlayerRole::Camera);
-    }
-    else
-    {
-        PC->SetRole(EPlayerRole::Move);
-    }
+    UE_LOG(LogTemp, Warning,
+        TEXT("[GM] PostLogin PC=%s RoleBefore=%s"),
+        *PC->GetName(),
+        PC->GetPawn() ? TEXT("HasPawn") : TEXT("NoPawn")
+    );
 
     // 다람쥐 찾기 (캐싱)
     if (!TargetSquirrel)
@@ -73,6 +36,11 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
             TargetSquirrel = *It;
             break;
         }
+        UE_LOG(LogTemp, Warning,
+            TEXT("[GM] TargetSquirrel Cached = %s"),
+            *GetNameSafe(TargetSquirrel)
+        );
+
     }
 
     // 다람쥐 있으면 카메라 가져와서 설정
@@ -81,6 +49,21 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
         UE_LOG(LogTemp, Error, TEXT("GameMode: TargetSquirrel not found"));
         return;
     }
+
+    // 역할 할당
+    if (PlayerIndex == 0)
+    {
+        PC->SetRole(EPlayerRole::Camera);
+      
+
+    }
+    else
+    {
+        PC->SetRole(EPlayerRole::Move);
+    }
+
+    
+
 
     /* =========================
      * PlayerController에 전달
