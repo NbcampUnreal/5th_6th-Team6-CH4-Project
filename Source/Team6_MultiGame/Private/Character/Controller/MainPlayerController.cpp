@@ -27,6 +27,12 @@ void AMainPlayerController::BeginPlay()
 
 	else
 	{
+		//////////////////////////////////////////////////// TitlePlayerController ////////////////////////////////////////////////////
+		FInputModeGameOnly InputMode;
+		SetInputMode(InputMode);
+		bShowMouseCursor = false;
+		//////////////////////////////////////////////////// TitlePlayerController ////////////////////////////////////////////////////
+
 		UE_LOG(LogTemp, Warning,
 			TEXT("[BeginPlay][LOCAL] Controller=%s Role(Init)=%s"),
 			*GetName(),
