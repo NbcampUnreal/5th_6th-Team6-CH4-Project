@@ -1,16 +1,13 @@
+// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
-#include "Components/WidgetComponent.h" 
 #include "Squirrel.generated.h"
 
 class USpringArmComponent;
 class UCameraComponent;
-
-//UI
-class UUW_HPBar;
 
 UCLASS()
 class TEAM6_MULTIGAME_API ASquirrel : public ACharacter
@@ -20,6 +17,11 @@ class TEAM6_MULTIGAME_API ASquirrel : public ACharacter
 public:
 	// Sets default values for this character's properties
 	ASquirrel();
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override; 
+
+	// === Look 적용(서버 권위) ===
+	void ApplyLook_ServerAuth(const FVector2D& LookInput); 
 
 protected:
 	// Called when the game starts or when spawned
@@ -35,31 +37,19 @@ public:
 	UFUNCTION()
 	void Move(const FVector2D& Value);
 
-	UFUNCTION()
-	void Look(const FVector2D& value);
+	/* ===== Camera ===== */
 
-	/** Camera boom positioning the camera behind the character */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
-	USpringArmComponent* CameraBoom;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	class USpringArmComponent* SpringArm;
 
-	/** Follow camera */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
-	UCameraComponent* FollowCamera;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	class UCameraComponent* Camera;
 
-#pragma region UI
+	// === Replicated View Rotation (카메라 회전 진실값) ===
+	UPROPERTY(ReplicatedUsing = OnRep_ViewRot) // [ADD]
+		FRotator RepViewRot;                    // [ADD]
 
-protected:
+	UFUNCTION()                              // [ADD]
+		void OnRep_ViewRot();                    // [ADD]
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HP")
-	float MaxHP = 100.f;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HP")
-	float CurrentHP;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
-	TObjectPtr<UWidgetComponent> HPWidgetComponent;
-
-	void UpdateHPUI();
-
-#pragma endregion
 };

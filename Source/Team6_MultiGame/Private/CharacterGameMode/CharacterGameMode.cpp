@@ -3,96 +3,78 @@
 
 #include "CharacterGameMode/CharacterGameMode.h"
 
-#include "Character/MoveManager.h"
+#include "Character/Controller/MainPlayerController.h"
 #include "Character/Squirrel.h"
-
-#include "EngineUtils.h"
-#include "GameFramework/PlayerController.h"
-#include "Engine/World.h"
+#include "EngineUtils.h"             // TActorIterator
 
 ACharacterGameMode::ACharacterGameMode()
 {
     DefaultPawnClass = nullptr;
-    
-}
-
-void ACharacterGameMode::BeginPlay()
-{
-	Super::BeginPlay();
-
-    if (GetWorld())
-    {
-        MoveManager = GetWorld()->SpawnActor<AMoveManager>();
-    }
-}
-
-APlayerController* ACharacterGameMode::SpawnPlayerController(
-    ENetRole InRemoteRole,
-    const FString& Options
-)
-{
-    int32 PlayerIndex = GetNumPlayers();
-
-    if (PlayerIndex == 0 && MouseControllerClass)
-    {
-        PlayerControllerClass = MouseControllerClass;
-    }
-    else if (WASDControllerClass)
-    {
-        PlayerControllerClass = WASDControllerClass;
-    }
-
-    UE_LOG(LogTemp, Warning,
-        TEXT("Spawning PlayerController for Player %d using %s"),
-        PlayerIndex,
-        *PlayerControllerClass->GetName()
-    );
-
-    return Super::SpawnPlayerController(InRemoteRole, Options);
+    PlayerIndex = 0;
+    TargetSquirrel = nullptr;
 }
 
 
-// ★ 2. 접속 완료 후 (컨트롤러 생성 완료됨) -> 다람쥐 빙의 시키기
 void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
 {
     Super::PostLogin(NewPlayer);
 
-    if (!HasAuthority() || !NewPlayer)
+    AMainPlayerController* PC = Cast<AMainPlayerController>(NewPlayer);
+    if (!PC) return;
+
+    UE_LOG(LogTemp, Warning,
+        TEXT("[GM] PostLogin PC=%s RoleBefore=%s"),
+        *PC->GetName(),
+        PC->GetPawn() ? TEXT("HasPawn") : TEXT("NoPawn")
+    );
+
+    // 다람쥐 찾기 (캐싱)
+    if (!TargetSquirrel)
     {
+        for (TActorIterator<ASquirrel> It(GetWorld()); It; ++It)
+        {
+            TargetSquirrel = *It;
+            break;
+        }
+        UE_LOG(LogTemp, Warning,
+            TEXT("[GM] TargetSquirrel Cached = %s"),
+            *GetNameSafe(TargetSquirrel)
+        );
+
+    }
+
+    // 다람쥐 있으면 카메라 가져와서 설정
+    if (!TargetSquirrel)
+    {
+        UE_LOG(LogTemp, Error, TEXT("GameMode: TargetSquirrel not found"));
         return;
     }
 
-    // 다람쥐 빙의
-    AssignSquirrelToController(NewPlayer);
+    // 역할 할당
+    if (PlayerIndex == 0)
+    {
+        PC->SetRole(EPlayerRole::Camera);
+      
+
+    }
+    else
+    {
+        PC->SetRole(EPlayerRole::Move);
+    }
+
+    
+
+
+    /* =========================
+     * PlayerController에 전달
+     * ========================= */
+    PC->SetTargetSquirrel(TargetSquirrel);
+
+    PlayerIndex++;
 }
 
 
 
 
-void ACharacterGameMode::AssignSquirrelToController(APlayerController* PC)
-{
-    if (!PC) return;
 
-    if (APawn* CurrentPawn = PC->GetPawn())
-    {
-        PC->UnPossess();
-    }
 
-    for (TActorIterator<ASquirrel> It(GetWorld()); It; ++It)
-    {
-        ASquirrel* Squirrel = *It;
-
-        // 주인이 없는 다람쥐 발견
-        if (Squirrel && Squirrel->GetController() == nullptr)
-        {
-            PC->Possess(Squirrel);
-            UE_LOG(LogTemp, Warning, TEXT("Success: Squirrel possessed by %s"), *PC->GetName());
-
-            // [중요] 빙의 후 클라이언트에게 카메라 업데이트 등을 알리기 위해 필요시 RPC 호출 가능
-            // 하지만 Possess가 되면 자동으로 ViewTarget이 잡히므로 보통은 바로 됩니다.
-            return;
-        }
-    }
-
-    UE_LOG(LogTemp, Error, TEXT("Failed: No free Squirrel found in level!"));
-}
