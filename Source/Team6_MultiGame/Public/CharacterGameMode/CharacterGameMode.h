@@ -4,12 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameMode.h"
-#include "GameFramework/PlayerController.h"
 #include "CharacterGameMode.generated.h"
 
-class AMoveManager;
 class ASquirrel;
-
 /**
  * 
  */
@@ -22,35 +19,19 @@ class TEAM6_MULTIGAME_API ACharacterGameMode : public AGameMode
 public:
 	ACharacterGameMode();
 
-	virtual void BeginPlay() override;
+	//virtual void BeginPlay() override;
 	
 
 	// 플레이어 접속 시 호출
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 
-	/** 클라이언트별 PlayerController 클래스 결정 */
-	virtual APlayerController* SpawnPlayerController(
-		ENetRole InRemoteRole,
-		const FString& Options
-	) override;
-
-
-	// ===== BP에서 할당 =====
-
-		// 마우스 전용 컨트롤러
-	UPROPERTY(EditDefaultsOnly, Category = "Controller")
-	TSubclassOf<APlayerController> MouseControllerClass;
-
-	// 키보드(WASD) 전용 컨트롤러
-	UPROPERTY(EditDefaultsOnly, Category = "Controller")
-	TSubclassOf<APlayerController> WASDControllerClass;
-
+protected:
+	
+	// 레벨에 배치된 다람쥐
 	UPROPERTY()
-	AMoveManager* MoveManager;
+	ASquirrel* TargetSquirrel;
 
-	// 다람쥐 자동 할당
-	UFUNCTION()
-	void AssignSquirrelToController(APlayerController* PC);
+	int32 PlayerIndex = 0;
 
 	
 };

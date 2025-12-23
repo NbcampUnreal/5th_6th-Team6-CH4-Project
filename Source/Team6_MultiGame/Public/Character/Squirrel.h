@@ -18,6 +18,11 @@ public:
 	// Sets default values for this character's properties
 	ASquirrel();
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override; 
+
+	// === Look 적용(서버 권위) ===
+	void ApplyLook_ServerAuth(const FVector2D& LookInput); 
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -32,14 +37,19 @@ public:
 	UFUNCTION()
 	void Move(const FVector2D& Value);
 
-	UFUNCTION()
-	void Look(const FVector2D& value);
+	/* ===== Camera ===== */
 
-	/** Camera boom positioning the camera behind the character */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
-	USpringArmComponent* CameraBoom;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	class USpringArmComponent* SpringArm;
 
-	/** Follow camera */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
-	UCameraComponent* FollowCamera;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	class UCameraComponent* Camera;
+
+	// === Replicated View Rotation (카메라 회전 진실값) ===
+	UPROPERTY(ReplicatedUsing = OnRep_ViewRot) // [ADD]
+		FRotator RepViewRot;                    // [ADD]
+
+	UFUNCTION()                              // [ADD]
+		void OnRep_ViewRot();                    // [ADD]
+
 };
