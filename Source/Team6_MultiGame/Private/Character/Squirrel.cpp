@@ -6,6 +6,9 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
+//UI
+#include "Components/WidgetComponent.h"
+#include "UI/UW_HPBar.h"
 
 // Sets default values
 ASquirrel::ASquirrel()
@@ -33,7 +36,18 @@ ASquirrel::ASquirrel()
 
    
     bReplicates = true;
-   
+
+
+    //UI
+    HPWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("HPWidgetComponent"));
+    HPWidgetComponent->SetupAttachment(GetMesh());
+    HPWidgetComponent->SetWidgetSpace(EWidgetSpace::World);
+    HPWidgetComponent->SetDrawSize(FVector2D(160.f, 24.f));
+    HPWidgetComponent->SetRelativeLocation(FVector(0.f, 0.f, 200.f));
+    HPWidgetComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+    CurrentHP = MaxHP;
+
 }
 
 // Called when the game starts or when spawned
@@ -41,6 +55,9 @@ void ASquirrel::BeginPlay()
 {
 	Super::BeginPlay();
 	
+    CurrentHP = MaxHP;
+    UpdateHPUI();
+
 }
 
 // Called every frame
@@ -87,4 +104,19 @@ void ASquirrel::Look(const FVector2D& value)
     AddControllerYawInput(value.X);
     // 상하 회전
     AddControllerPitchInput(value.Y);
+}
+
+void ASquirrel::UpdateHPUI()
+{
+    if (!HPWidgetComponent)
+    {
+        //로그용 나중에 지워도 상관없음
+        UE_LOG(LogTemp, Warning, TEXT("HPWidgetComponent is null"));
+        return;
+    }
+
+    if (UUW_HPBar* HPBar = Cast<UUW_HPBar>(HPWidgetComponent->GetUserWidgetObject()))
+    {
+        HPBar->SetHP(CurrentHP, MaxHP);
+    }
 }
