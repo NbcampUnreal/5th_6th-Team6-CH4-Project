@@ -2,12 +2,13 @@
 
 
 #include "Character/Controller/MainPlayerController.h"
+
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "Net/UnrealNetwork.h"
 
 #include "Character/Squirrel.h"
-#include "Character/Controller/SquirrelAIController.h"
+
 
 AMainPlayerController::AMainPlayerController()
 {
@@ -78,15 +79,10 @@ void AMainPlayerController::SetupInputComponent()
 		return;
 	}
 
+	// BindAction 결과 로그는 너무 잦을 수 있어, 실패 케이스만 경고
 	if (IA_Move)
 	{
-		EIC->BindAction(
-			IA_Move,
-			ETriggerEvent::Triggered,
-			this,
-			&AMainPlayerController::OnMoveTriggered
-		);
-		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Move is Succeed"));
+		EIC->BindAction(IA_Move, ETriggerEvent::Triggered, this, &AMainPlayerController::OnMoveTriggered);
 	}
 	else
 	{
@@ -95,13 +91,7 @@ void AMainPlayerController::SetupInputComponent()
 
 	if (IA_Look)
 	{
-		EIC->BindAction(
-			IA_Look,
-			ETriggerEvent::Triggered,
-			this,
-			&AMainPlayerController::OnLookTriggered
-		);
-		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Look is Succeed"));
+		EIC->BindAction(IA_Look, ETriggerEvent::Triggered, this, &AMainPlayerController::OnLookTriggered);
 	}
 	else
 	{
@@ -169,12 +159,12 @@ void AMainPlayerController::ApplyPlayerRole()
 		return;
 	}
 
-	// AIController 체크 제거
-	SetViewTargetWithBlend(
-		TargetSquirrel,
-		0.f,
-		EViewTargetBlendFunction::VTBlend_Linear
-	);
+	
+	// 동일 ViewTarget이면 중복 호출 방지
+	if (GetViewTarget() != TargetSquirrel)
+	{
+		SetViewTargetWithBlend(TargetSquirrel, 0.f, EViewTargetBlendFunction::VTBlend_Linear);
+	}
 
 	UE_LOG(LogTemp, Warning,
 		TEXT("[ApplyRole] ViewTarget set to %s | Role=%s"),
@@ -197,9 +187,13 @@ void AMainPlayerController::OnMoveTriggered(const FInputActionValue& Value)
 		UE_LOG(LogTemp, Warning, TEXT("Move input but TargetSquirrel is NULL"));
 		return;
 	}
-	UE_LOG(LogTemp, Warning,
-		TEXT("[OnMoveTriggered]"));
-	Server_SendMove(Value.Get<FVector2D>());
+	const FVector2D Move = Value.Get<FVector2D>();
+
+	// 데드존: 거의 0이면 RPC 자체를 보내지 않음 (네트워크 절약)
+	if (Move.IsNearlyZero(0.01f))
+		return;
+
+	Server_SendMove(Move);
 	
 }
 
@@ -211,14 +205,17 @@ void AMainPlayerController::OnLookTriggered(const FInputActionValue& Value)
 	if (!TargetSquirrel)
 		return;
 
-	const FVector2D Look = Value.Get<FVector2D>();
+	FVector2D Look = Value.Get<FVector2D>();
 
-	// [REMOVE] 로컬 ControlRotation 누적 (이 방식은 다른 클라 동기화 안 됨)
-	// AddYawInput(Look.X);
-	// AddPitchInput(-Look.Y);
+	// [FIX] 데드존
+	if (Look.IsNearlyZero(0.01f))
+		return;
+
+	// [NOTE] Pitch 부호 유지 (기존 로직)
+	Look.Y = -Look.Y;
 
 	// [ADD] 서버로 Look 델타 전송
-	Server_SendLook(FVector2D(Look.X, -Look.Y)); // [ADD] (Pitch 부호는 기존 로직 유지)
+	Server_SendLook(Look);
 }
 
 /* ===================== Server RPC ===================== */

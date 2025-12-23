@@ -67,7 +67,7 @@ void ASquirrel::ApplyLook_ServerAuth(const FVector2D& LookInput) // [ADD]
         SpringArm->SetRelativeRotation(RepViewRot); // [ADD]
     }
 
-    ForceNetUpdate(); // [ADD] (즉시 전파를 조금 더 촉진)
+    //ForceNetUpdate(); // [ADD] (즉시 전파를 조금 더 촉진)
 }
 
 // [ADD] Replication 등록
