@@ -47,7 +47,8 @@ void ASquirrel::OnRep_ViewRot() // [ADD]
 {
     if (SpringArm)
     {
-        SpringArm->SetRelativeRotation(RepViewRot); // [ADD]
+        SpringArm->SetUsingAbsoluteRotation(true);
+        SpringArm->SetWorldRotation(FRotator(RepViewRot.Pitch, GetActorRotation().Yaw, 0.f));
     }
 }
 
@@ -57,17 +58,21 @@ void ASquirrel::ApplyLook_ServerAuth(const FVector2D& LookInput) // [ADD]
     if (!HasAuthority())
         return;
 
-    // 누적
-    RepViewRot.Yaw += LookInput.X; // [ADD]
-    RepViewRot.Pitch = FMath::Clamp(RepViewRot.Pitch + LookInput.Y, -80.f, 80.f); // [ADD]
+    // 1) 몸(Yaw) 회전
+    const float NewYaw = FMath::UnwindDegrees(GetActorRotation().Yaw + LookInput.X);
+    SetActorRotation(FRotator(0.f, NewYaw, 0.f));
 
-    // 서버 즉시 반영
+    // 2) 카메라 Pitch 누적
+    RepViewRot.Pitch = FMath::Clamp(RepViewRot.Pitch + LookInput.Y, -80.f, 80.f);
+
+    // 3) 카메라도 "같이" 돌리기: SpringArm을 월드 회전으로 직접 세팅
     if (SpringArm)
     {
-        SpringArm->SetRelativeRotation(RepViewRot); // [ADD]
+        // AbsoluteRotation이 켜져 있든 말든 결과가 나오게 강제
+        SpringArm->SetUsingAbsoluteRotation(true);
+        SpringArm->SetWorldRotation(FRotator(RepViewRot.Pitch, NewYaw, 0.f));
     }
 
-    //ForceNetUpdate(); // [ADD] (즉시 전파를 조금 더 촉진)
 }
 
 // [ADD] Replication 등록
@@ -107,16 +112,10 @@ void ASquirrel::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 void ASquirrel::Move(const FVector2D& MoveInput)
 {
   
-    if (!FMath::IsNearlyZero(MoveInput.X))
-    {
-        // 캐릭터가 바라보는 방향(정면)으로 X축 이동
-        AddMovementInput(GetActorForwardVector(), MoveInput.X);
-    }
+    if (MoveInput.IsNearlyZero(0.01f))
+        return;
 
-    if (!FMath::IsNearlyZero(MoveInput.Y))
-    {
-        // 캐릭터의 오른쪽 방향으로 Y축 이동
-        AddMovementInput(GetActorRightVector(), MoveInput.Y);
-    }
+    AddMovementInput(GetActorForwardVector(), MoveInput.Y); // 전후(W/S)
+    AddMovementInput(GetActorRightVector(), MoveInput.X); // 좌우(A/D)
 }
 
