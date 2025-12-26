@@ -98,10 +98,10 @@ void AMainPlayerController::SetupInputComponent()
 		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Look is NULL"));
 	}
 
-	//if (IA_Fire)
-	//	EIC->BindAction(IA_Fire, ETriggerEvent::Started, this, &AMainPlayerController::OnFireStarted);
-	//else
-	//	UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Fire is NULL"));
+	if (IA_Fire)
+		EIC->BindAction(IA_Fire, ETriggerEvent::Started, this, &AMainPlayerController::OnFireStarted);
+	else
+		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Fire is NULL"));
 }
 
 /* ===================== Role ===================== */
@@ -223,16 +223,16 @@ void AMainPlayerController::OnLookTriggered(const FInputActionValue& Value)
 	Server_SendLook(Look);
 }
 
-//void AMainPlayerController::OnFireStarted(const FInputActionValue& Value)
-//{
-//	if (PlayerRole != EPlayerRole::Camera)
-//		return;
-//
-//	if (!TargetSquirrel)
-//		return;
-//
-//	Server_SendFire();
-//}
+void AMainPlayerController::OnFireStarted(const FInputActionValue& Value)
+{
+	if (PlayerRole != EPlayerRole::Camera)
+		return;
+
+	if (!TargetSquirrel)
+		return;
+
+	Server_SendFire();
+}
 
 /* ===================== Server RPC ===================== */
 
@@ -253,13 +253,17 @@ void AMainPlayerController::Server_SendLook_Implementation(const FVector2D& Look
 }
 
 
-//void AMainPlayerController::Server_SendFire_Implementation()
-//{
-//	if (TargetSquirrel)
-//	{
-//		TargetSquirrel->Fire_ServerAuth(); // [ADD]
-//	}
-//}
+void AMainPlayerController::Server_SendFire_Implementation()
+{
+	// 서버에서도 역할 체크(치트/실수 방지)
+	if (PlayerRole != EPlayerRole::Camera)
+		return;
+
+	if (TargetSquirrel)
+	{
+		TargetSquirrel->Fire_ServerAuth();
+	}
+}
 
 /* ===================== Replication ===================== */
 

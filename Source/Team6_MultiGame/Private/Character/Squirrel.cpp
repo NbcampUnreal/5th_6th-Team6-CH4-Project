@@ -8,6 +8,7 @@
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/PlayerController.h"
 #include "Character/Controller/MainPlayerController.h"
+#include "KYG/ALCGunBase.h"
 
 // Sets default values
 ASquirrel::ASquirrel()
@@ -75,14 +76,6 @@ void ASquirrel::ApplyLook_ServerAuth(const FVector2D& LookInput) // [ADD]
 
 }
 
-// [ADD] Replication 등록
-void ASquirrel::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const // [ADD]
-{
-    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-    DOREPLIFETIME(ASquirrel, RepViewRot); // [ADD]
-}
-
 
 // Called when the game starts or when spawned
 void ASquirrel::BeginPlay()
@@ -119,3 +112,86 @@ void ASquirrel::Move(const FVector2D& MoveInput)
     AddMovementInput(GetActorRightVector(), MoveInput.X); // 좌우(A/D)
 }
 
+void ASquirrel::Fire_ServerAuth()
+{
+    if (!HasAuthority()) return;
+    if (!EquippedGun) return;
+
+    // 너의 기존 방식대로 서버가 가진 조준값으로 AimRot 구성
+    const FRotator AimRot(RepViewRot.Pitch, GetActorRotation().Yaw, 0.f);
+
+    // PC 의존 제거 버전
+    EquippedGun->HandleFire(AimRot);
+}
+
+void ASquirrel::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+    DOREPLIFETIME(ASquirrel, EquippedGun);
+    DOREPLIFETIME(ASquirrel, RepViewRot);
+}
+
+void ASquirrel::EquipGun_ServerAuth(TSubclassOf<AALCGunBase> NewGunClass)
+{
+    if (!HasAuthority()) return;
+    if (!NewGunClass) return;
+
+    // 기존 총 정리
+    UnequipGun_ServerAuth();
+
+    FActorSpawnParameters Params;
+    Params.Owner = this;
+    Params.Instigator = this;
+    Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+    EquippedGun = GetWorld()->SpawnActor<AALCGunBase>(NewGunClass, Params);
+    if (EquippedGun)
+    {
+        // 서버에서도 즉시 부착(서버는 판정/디버그에 필요)
+        AttachEquippedGun();
+
+        // 복제 갱신 빠르게
+        ForceNetUpdate();
+    }
+}
+
+void ASquirrel::UnequipGun_ServerAuth()
+{
+    if (!HasAuthority()) return;
+
+    if (EquippedGun)
+    {
+        EquippedGun->Destroy();
+        EquippedGun = nullptr;
+        ForceNetUpdate();
+    }
+}
+
+void ASquirrel::OnRep_EquippedGun()
+{
+    // 클라: 장착 총이 갱신되면 부착만 처리
+    AttachEquippedGun();
+}
+
+void ASquirrel::AttachEquippedGun()
+{
+    if (!EquippedGun) return;
+
+    USkeletalMeshComponent* MeshComp = GetMesh();
+    if (!MeshComp) return;
+
+    if (!MeshComp->DoesSocketExist(WeaponSocketName))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[AttachEquippedGun] Socket not found: %s (Mesh=%s)"),
+            *WeaponSocketName.ToString(),
+            *MeshComp->GetName());
+        return;
+    }
+
+    EquippedGun->AttachToComponent(
+        MeshComp,
+        FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+        WeaponSocketName
+    );
+}
