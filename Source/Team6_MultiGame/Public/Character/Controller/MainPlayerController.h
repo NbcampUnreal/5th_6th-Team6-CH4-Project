@@ -60,13 +60,16 @@ protected:
 	/* ===================== Input ===================== */
 	void OnMoveTriggered(const FInputActionValue& Value);
 	void OnLookTriggered(const FInputActionValue& Value);
-
+	void OnFireStarted(const FInputActionValue& Value);
 	/* ===================== Server RPC ===================== */
 	UFUNCTION(Server, Reliable)
 	void Server_SendMove(const FVector2D& MoveInput);
 
 	UFUNCTION(Server, Reliable)                 // [ADD]
 	void Server_SendLook(const FVector2D& LookInput); // [ADD]
+
+	UFUNCTION(Server, Reliable)
+	void Server_SendFire();
 
 public:
 	/* ===================== Input Assets ===================== */
@@ -78,6 +81,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	UInputAction* IA_Look;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UInputAction* IA_Fire;
 
 protected:
 	/* ===================== Replication ===================== */
