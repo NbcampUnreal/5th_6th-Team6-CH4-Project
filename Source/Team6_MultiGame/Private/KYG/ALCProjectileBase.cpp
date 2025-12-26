@@ -64,7 +64,8 @@ void AALCProjectileBase::OnHit(
 		DamageTarget->GetClass()->ImplementsInterface(ULCDamageable::StaticClass()))
 	{
 		//인터페이스 함수 호출
-		ILCDamageable::Execute_ReceiveDamage(OtherActor, Damage, GetInstigator());
+		//ILCDamageable::Execute_ReceiveDamage(OtherActor, Damage, GetInstigator());
+		ILCDamageable::Execute_ReceiveDamage(DamageTarget, Damage, GetInstigator());
 	}
 	//처리 후 곧바로 발사체 제거
 	Destroy();
