@@ -4,8 +4,9 @@
 
 #include "Blueprint/UserWidget.h"
 #include "Server/LobbyPlayerState.h"
-#include "Server/TitleGameModeBase.h"
+#include "Server/LobbyGameModeBase.h"
 #include "Engine/World.h"
+
 
 void ALobbyPlayerController::BeginPlay()
 {
@@ -30,23 +31,28 @@ void ALobbyPlayerController::BeginPlay()
     }
 }
 
-//void ALobbyPlayerController::ToggleReady()
-//{
-//    ServerToggleReady();
-//}
+void ALobbyPlayerController::ToggleReady()
+{
+    ServerToggleReady();
+}
 
-//void ALobbyPlayerController::ServerToggleReady_Implementation()
-//{
-//    ALobbyPlayerState* PS = GetPlayerState<ALobbyPlayerState>();
-//    if (!PS) return;
-//
-//    PS->SetReady(!PS->bReady);
-//
-//    if (UWorld* World = GetWorld())
-//    {
-//        if (ALobbyGameModeBase* GM = Cast<ALobbyGameModeBase>(World->GetAuthGameMode()))
-//        {
-//            GM->TryStartGame();
-//        }
-//    }
-//}
+void ALobbyPlayerController::ServerToggleReady_Implementation()
+{
+    UE_LOG(LogTemp, Warning, TEXT("[ServerToggleReady] CALLED. PC=%s"), *GetName());
+
+    ALobbyPlayerState* PS = GetPlayerState<ALobbyPlayerState>();
+    UE_LOG(LogTemp, Warning, TEXT("[ServerToggleReady] PS=%s Ready(before)=%d"),
+        *GetNameSafe(PS), PS ? PS->bReady : -1);
+
+    if (!PS) return;
+
+    PS->SetReady(!PS->bReady);
+
+    if (UWorld* World = GetWorld())
+    {
+        if (ALobbyGameModeBase* GM = Cast<ALobbyGameModeBase>(World->GetAuthGameMode()))
+        {
+            GM->TryStartGame();
+        }
+    }
+}

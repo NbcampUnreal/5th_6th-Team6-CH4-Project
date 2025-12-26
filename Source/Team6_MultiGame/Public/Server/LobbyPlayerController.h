@@ -14,8 +14,8 @@ class TEAM6_MULTIGAME_API ALobbyPlayerController : public APlayerController
 public:
     virtual void BeginPlay() override;
 
-    //UFUNCTION(BlueprintCallable, Category = "Lobby")
-    //void ToggleReady();
+    UFUNCTION(BlueprintCallable, Category = "Lobby")
+    void ToggleReady();
 
 private:
     UPROPERTY(EditDefaultsOnly, Category = "UI")
@@ -25,6 +25,6 @@ private:
     TObjectPtr<UUserWidget> LobbyWidgetInstance;
 
 protected:
-    //UFUNCTION(Server, Reliable)
-    //void ServerToggleReady();
+    UFUNCTION(Server, Reliable)
+    void ServerToggleReady();
 };

@@ -3,6 +3,7 @@
 #include "Server/LobbyGameModeBase.h"
 
 #include "Server/LobbyPlayerState.h"
+#include "Server/LobbyPlayerController.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
 #include "Engine/World.h"
@@ -11,7 +12,7 @@ ALobbyGameModeBase::ALobbyGameModeBase()
 {
 	bUseSeamlessTravel = false;
 
-	// 로비에서 PlayerStateClass를 확실히 로비용으로
+	PlayerControllerClass = ALobbyPlayerController::StaticClass();
 	PlayerStateClass = ALobbyPlayerState::StaticClass();
 }
 
@@ -53,10 +54,19 @@ bool ALobbyGameModeBase::AreAllPlayersReady() const
 
 void ALobbyGameModeBase::TryStartGame()
 {
-	if (!HasAuthority()) return;
-	if (bGameStarting) return;
+	UE_LOG(LogTemp, Warning, TEXT("[LobbyGM] TryStartGame called. HasAuth=%d"), HasAuthority());
 
-	if (AreAllPlayersReady())
+	if (!HasAuthority()) return;
+	if (bGameStarting)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[LobbyGM] Already starting."));
+		return;
+	}
+
+	const bool bAllReady = AreAllPlayersReady();
+	UE_LOG(LogTemp, Warning, TEXT("[LobbyGM] AreAllPlayersReady=%d (MinPlayers=%d)"), bAllReady, MinPlayersToStart);
+
+	if (bAllReady)
 	{
 		bGameStarting = true;
 		StartGame();
@@ -67,6 +77,9 @@ void ALobbyGameModeBase::StartGame()
 {
 	if (!HasAuthority()) return;
 
-	UE_LOG(LogTemp, Warning, TEXT("[LobbyGM] All Ready. ServerTravel -> %s"), *MainMapPath);
-	GetWorld()->ServerTravel(MainMapPath);
+	const FString TravelURL = TEXT("/Game/Maps/L_WaveMap");
+	UE_LOG(LogTemp, Warning, TEXT("[LobbyGM] ServerTravel -> %s"), *TravelURL);
+
+	const bool bOk = GetWorld()->ServerTravel(TravelURL);
+	UE_LOG(LogTemp, Warning, TEXT("[LobbyGM] ServerTravel returned %d"), bOk);
 }

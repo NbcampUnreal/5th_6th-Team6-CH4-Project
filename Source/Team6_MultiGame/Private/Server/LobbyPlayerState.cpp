@@ -26,6 +26,7 @@ void ALobbyPlayerState::SetReady(bool bNewReady)
 
 void ALobbyPlayerState::OnRep_Ready()
 {
+	UE_LOG(LogTemp, Warning, TEXT("[OnRep_Ready] %s Ready=%d"), *GetName(), bReady);
 	// 클라이언트에서 bReady 복제 반영 시점
 	OnReadyChanged.Broadcast(this, bReady);
 }
