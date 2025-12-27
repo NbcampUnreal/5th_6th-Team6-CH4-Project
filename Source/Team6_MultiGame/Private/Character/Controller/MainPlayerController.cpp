@@ -9,6 +9,8 @@
 
 #include "Character/Squirrel.h"
 
+#include "UI/UW_KeyGuide.h"
+
 
 AMainPlayerController::AMainPlayerController()
 {
@@ -58,6 +60,16 @@ void AMainPlayerController::BeginPlay()
 			}
 		}
 	}
+
+	if (IsLocalController() && KeyGuideClass)
+	{
+		KeyGuideWidget = CreateWidget<UUW_KeyGuide>(this, KeyGuideClass);
+		if (KeyGuideWidget)
+		{
+			KeyGuideWidget->AddToViewport();
+		}
+	}
+
 }
 
 /* ===================== Input Binding ===================== */
@@ -83,6 +95,7 @@ void AMainPlayerController::SetupInputComponent()
 	if (IA_Move)
 	{
 		EIC->BindAction(IA_Move, ETriggerEvent::Triggered, this, &AMainPlayerController::OnMoveTriggered);
+		EIC->BindAction(IA_Move, ETriggerEvent::Completed, this, &AMainPlayerController::OnMoveCompleted);
 	}
 	else
 	{
@@ -96,6 +109,18 @@ void AMainPlayerController::SetupInputComponent()
 	else
 	{
 		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Look is NULL"));
+	}
+
+	if (IA_MouseL)
+	{
+		EIC->BindAction(IA_MouseL, ETriggerEvent::Triggered, this, &AMainPlayerController::OnMouseLTriggered);
+		EIC->BindAction(IA_MouseL, ETriggerEvent::Completed, this, &AMainPlayerController::OnMouseLCompleted);
+	}
+
+	if (IA_MouseR)
+	{
+		EIC->BindAction(IA_MouseR, ETriggerEvent::Triggered, this, &AMainPlayerController::OnMouseRTriggered);
+		EIC->BindAction(IA_MouseR, ETriggerEvent::Completed, this, &AMainPlayerController::OnMouseRCompleted);
 	}
 }
 
@@ -114,7 +139,7 @@ void AMainPlayerController::SetRole(EPlayerRole NewRole)
 	
 	
 }
-void AMainPlayerController::OnRep_PlayerRole()
+void AMainPlayerController::OnRep_PlayerRole() 
 {
 	if (IsLocalController())
 	{
@@ -124,6 +149,11 @@ void AMainPlayerController::OnRep_PlayerRole()
 			PlayerRole == EPlayerRole::Camera ? TEXT("Camera") : TEXT("Move"));
 	}
 	ApplyPlayerRole();
+
+	if (KeyGuideWidget)
+	{
+		KeyGuideWidget->ResetAllKeys();
+	}
 }
 
 void AMainPlayerController::SetTargetSquirrel(ASquirrel* InSquirrel)
@@ -139,8 +169,6 @@ void AMainPlayerController::SetTargetSquirrel(ASquirrel* InSquirrel)
 	// ★ 역할이 이미 정해져 있으면 즉시 반영
 	ApplyPlayerRole();
 }
-
-
 
 void AMainPlayerController::OnRep_TargetSquirrel()
 {
@@ -177,24 +205,67 @@ void AMainPlayerController::ApplyPlayerRole()
 
 void AMainPlayerController::OnMoveTriggered(const FInputActionValue& Value)
 {
-	if (PlayerRole != EPlayerRole::Move)
+	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
 	{
 		return;
 	}
 
-	if (!TargetSquirrel)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Move input but TargetSquirrel is NULL"));
-		return;
-	}
 	const FVector2D Move = Value.Get<FVector2D>();
 
-	// 데드존: 거의 0이면 RPC 자체를 보내지 않음 (네트워크 절약)
 	if (Move.IsNearlyZero(0.01f))
 		return;
 
-	Server_SendMove(Move);
 	
+	Server_SendMove(Move);
+
+	
+	if (KeyGuideWidget)
+	{
+		KeyGuideWidget->SetKeyPressed("W", Move.X > 0.f);
+		KeyGuideWidget->SetKeyPressed("S", Move.X < 0.f);
+		KeyGuideWidget->SetKeyPressed("D", Move.Y > 0.f);
+		KeyGuideWidget->SetKeyPressed("A", Move.Y < 0.f);
+	}
+}
+
+void AMainPlayerController::OnMoveCompleted(const FInputActionValue& Value)
+{
+	if (KeyGuideWidget)
+	{
+		KeyGuideWidget->ResetAllKeys();
+	}
+}
+
+void AMainPlayerController::OnMouseLTriggered(const FInputActionValue& Value)
+{
+	if (KeyGuideWidget)
+	{
+		KeyGuideWidget->SetKeyPressed("MouseL", true);
+	}
+}
+
+void AMainPlayerController::OnMouseLCompleted(const FInputActionValue& Value)
+{
+	if (KeyGuideWidget)
+	{
+		KeyGuideWidget->SetKeyPressed("MouseL", false);
+	}
+}
+
+void AMainPlayerController::OnMouseRTriggered(const FInputActionValue& Value)
+{
+	if (KeyGuideWidget)
+	{
+		KeyGuideWidget->SetKeyPressed("MouseR", true);
+	}
+}
+
+void AMainPlayerController::OnMouseRCompleted(const FInputActionValue& Value)
+{
+	if (KeyGuideWidget)
+	{
+		KeyGuideWidget->SetKeyPressed("MouseR", false);
+	}
 }
 
 void AMainPlayerController::OnLookTriggered(const FInputActionValue& Value)

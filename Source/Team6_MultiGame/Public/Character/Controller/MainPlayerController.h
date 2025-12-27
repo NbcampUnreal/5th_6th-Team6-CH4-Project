@@ -7,6 +7,7 @@
 #include "InputActionValue.h"
 #include "MainPlayerController.generated.h"
 
+class UUW_KeyGuide;
 /**
  * 
  */
@@ -79,9 +80,29 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	UInputAction* IA_Look;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UInputAction* IA_MouseL;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UInputAction* IA_MouseR;
+
 protected:
 	/* ===================== Replication ===================== */
-	virtual void GetLifetimeReplicatedProps(
-		TArray<FLifetimeProperty>& OutLifetimeProps
-	) const override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+protected:
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUW_KeyGuide> KeyGuideClass;
+
+	UPROPERTY()
+	TObjectPtr<UUW_KeyGuide> KeyGuideWidget;
+
+	void OnMoveCompleted(const FInputActionValue& Value);
+
+	void OnMouseLTriggered(const FInputActionValue& Value);
+	void OnMouseLCompleted(const FInputActionValue& Value);
+
+	void OnMouseRTriggered(const FInputActionValue& Value);
+	void OnMouseRCompleted(const FInputActionValue& Value);
 };
