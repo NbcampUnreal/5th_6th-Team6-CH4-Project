@@ -2,6 +2,7 @@
 
 #include "KYG/ALCGunItem.h"
 #include "KYG/ALCGunBase.h"
+#include "Character/Squirrel.h"  
 #include "GameFramework/Character.h"
 #include "KYG/KYGTestCharacter.h"
 
@@ -12,19 +13,29 @@ void AALCGunItem::OnPickedUp(ACharacter* Character)
 	if (!HasAuthority() || !GunClass || !Character) 
 	{ return; }
 
-	//현재 월드 가져오기
-	UWorld* World = GetWorld();
-	if (!World) 
-	{ return; }
 
-	//총기 스폰 피라미터
-	FActorSpawnParameters Params;
-	Params.Owner = Character;		//총의 소유자
-	Params.Instigator = Cast<APawn>(Character);//총의 발사 시 피해 원인 추적
+	ASquirrel* Squirrel = Cast<ASquirrel>(Character);
+	if (!Squirrel)
+		return;
 
-	//새 총 스폰
-	AALCGunBase* NewGun = World->SpawnActor<AALCGunBase>(GunClass, Params);
-	if (!NewGun) { return; }
+	// 총 스폰/장착은 다람쥐가 전담
+	Squirrel->EquipGun_ServerAuth(GunClass);
+
+
+
+	////현재 월드 가져오기
+	//UWorld* World = GetWorld();
+	//if (!World) 
+	//{ return; }
+
+	////총기 스폰 피라미터
+	//FActorSpawnParameters Params;
+	//Params.Owner = Character;		//총의 소유자
+	//Params.Instigator = Cast<APawn>(Character);//총의 발사 시 피해 원인 추적
+
+	////새 총 스폰
+	//AALCGunBase* NewGun = World->SpawnActor<AALCGunBase>(GunClass, Params);
+	//if (!NewGun) { return; }
 
 	//총 스폰 성공 시 캐릭터 손 소켓에 부착
 	//if (Gun)
@@ -38,9 +49,9 @@ void AALCGunItem::OnPickedUp(ACharacter* Character)
 	//}
 	
 		//캐릭터가 "현재 들고 있는 총"을 알도록 전달
-		if (AKYGTestCharacter* TestChar = Cast<AKYGTestCharacter>(Character))
+		/*if (AKYGTestCharacter* TestChar = Cast<AKYGTestCharacter>(Character))
 		{
 			TestChar->ServerEquipGun(NewGun);
-		}
-	Destroy();
+		}*/
+	//Destroy();
 }

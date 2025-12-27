@@ -15,7 +15,7 @@ public:
 
 	AALCProjectileBase();
 
-	void Init(float InDamage, FVector Direction, float Speed);
+	virtual void Init(float InDamage, FVector Direction, float Speed);
 
 protected:
 	UPROPERTY(VisibleAnywhere)

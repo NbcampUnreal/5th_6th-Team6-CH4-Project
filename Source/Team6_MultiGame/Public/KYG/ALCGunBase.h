@@ -6,6 +6,9 @@
 #include "GameFramework/Actor.h"
 #include "ALCGunBase.generated.h"
 
+class UStaticMeshComponent;
+class AALCProjectileBase;
+
 UCLASS()
 class TEAM6_MULTIGAME_API AALCGunBase : public AActor
 {
@@ -14,8 +17,10 @@ class TEAM6_MULTIGAME_API AALCGunBase : public AActor
 public:	
 	AALCGunBase();
 
-	UFUNCTION(BlueprintCallable)
-	void Fire();
+	/*UFUNCTION(BlueprintCallable)
+	void Fire();*/
+
+	void HandleFire(const FRotator& AimRot);
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<class AALCProjectileBase> ProjectileClass;
@@ -34,9 +39,9 @@ protected:
 
 	float LastFireTime;
 
-	UFUNCTION(Server, Reliable)
+	/*UFUNCTION(Server, Reliable)
 	void ServerFire();
-	void ServerFire_Implementation();
+	void ServerFire_Implementation();*/
 
-	void HandleFire();
+	
 };

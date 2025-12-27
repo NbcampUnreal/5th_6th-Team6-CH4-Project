@@ -5,9 +5,7 @@
 #include "GameFramework/PlayerController.h"
 #include "TitlePlayerController.generated.h"
 
-/**
- * 
- */
+
 UCLASS()
 class TEAM6_MULTIGAME_API ATitlePlayerController : public APlayerController
 {
@@ -16,7 +14,8 @@ class TEAM6_MULTIGAME_API ATitlePlayerController : public APlayerController
 public:
 	virtual void BeginPlay() override;
 
-	void JoinServer(const FString& InIPAddress);
+	UFUNCTION(BlueprintCallable, Category = "Title")
+	void JoinServer(const FString& InAddress);
 
 private:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = ASUIPlayerController, Meta = (AllowPrivateAccess))

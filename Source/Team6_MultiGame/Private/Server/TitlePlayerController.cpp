@@ -1,22 +1,26 @@
 
 #include "Server/TitlePlayerController.h"
-
+#include "GameFramework/PlayerState.h" //  추가
+#include "Server/LobbyPlayerState.h"
+#include "Server/TitleGameModeBase.h"
 #include "Blueprint/UserWidget.h"
 #include "Kismet/GameplayStatics.h"
+#include "Engine/World.h"
+
+
+
 
 void ATitlePlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (IsLocalController() == false)
-	{
+	if (!IsLocalController())
 		return;
-	}
 
-	if (IsValid(UIWidgetClass) == true)
+	if (UIWidgetClass)
 	{
 		UIWidgetInstance = CreateWidget<UUserWidget>(this, UIWidgetClass);
-		if (IsValid(UIWidgetInstance) == true)
+		if (UIWidgetInstance)
 		{
 			UIWidgetInstance->AddToViewport();
 
@@ -29,8 +33,24 @@ void ATitlePlayerController::BeginPlay()
 	}
 }
 
-void ATitlePlayerController::JoinServer(const FString& InIPAddress)
+void ATitlePlayerController::JoinServer(const FString& InAddress)
 {
-	FName NextLevelName = FName(*InIPAddress);
-	UGameplayStatics::OpenLevel(GetWorld(), NextLevelName, true);
+	FString Addr = InAddress;
+	Addr.TrimStartAndEndInline();
+
+	if (Addr.IsEmpty())
+	{
+		UE_LOG(LogTemp, Error, TEXT("[TitlePC] JoinServer failed: empty address"));
+		return;
+	}
+
+	// 타이틀 UI가 남아있지 않게 정리(권장)
+	if (UIWidgetInstance)
+	{
+		UIWidgetInstance->RemoveFromParent();
+		UIWidgetInstance = nullptr;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("[TitlePC] ClientTravel -> %s"), *Addr);
+	ClientTravel(Addr, ETravelType::TRAVEL_Absolute);
 }

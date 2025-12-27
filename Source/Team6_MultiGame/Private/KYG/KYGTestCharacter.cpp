@@ -101,7 +101,7 @@ void AKYGTestCharacter::InputFire()
         UE_LOG(LogTemp, Warning, TEXT("[InputFire] No EquippedGun"));
         return;
     }
-    EquippedGun->Fire(); // 내부에서 서버 RPC 처리됨
+   /* EquippedGun->Fire();*/ // 내부에서 서버 RPC 처리됨
 }
 
 

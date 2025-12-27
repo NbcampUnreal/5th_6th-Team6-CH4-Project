@@ -1,43 +1,35 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
-#include "TitleGameModeBase.generated.h"
+#include "LobbyGameModeBase.generated.h"
 
 
 UCLASS()
-class TEAM6_MULTIGAME_API ATitleGameModeBase : public AGameModeBase
+class TEAM6_MULTIGAME_API ALobbyGameModeBase : public AGameModeBase
 {
 	GENERATED_BODY()
 	
 public:
-	ATitleGameModeBase();
+	ALobbyGameModeBase();
 
-	// 최소 인원(원하면)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lobby")
 	int32 MinPlayersToStart = 2;
 
-	// 메인 맵 경로 (프로젝트에 맞게 변경)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lobby")
 	FString MainMapPath = TEXT("/Game/Maps/MainMap");
 
-	// 전원 레디 검사
-	UFUNCTION(BlueprintCallable, Category = "Lobby")
 	bool AreAllPlayersReady() const;
 
-	// Ready 변경 시마다 호출(서버)
 	void TryStartGame();
 
 protected:
-	// 중복 시작 방지
 	bool bGameStarting = false;
 
-	// 실제 시작(서버 트래블)
 	void StartGame();
 
-	// 누가 들어오면 기본 Ready false로
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void Logout(AController* Exiting) override;
 };
