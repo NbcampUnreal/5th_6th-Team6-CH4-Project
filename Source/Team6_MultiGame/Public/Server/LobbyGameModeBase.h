@@ -16,7 +16,7 @@ public:
 	ALobbyGameModeBase();
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lobby")
-	int32 MinPlayersToStart = 2;
+	int32 MinPlayersToStart = 1;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lobby")
 	FString MainMapPath = TEXT("/Game/Maps/MainMap");
@@ -27,7 +27,11 @@ public:
 
 protected:
 	bool bGameStarting = false;
+	// Voice Lobby 리더가 이미 정해졌는지
+	bool bLeaderAssigned = false;
 
+	//  리더 지정 헬퍼
+	void AssignLeaderIfNeeded();
 	void StartGame();
 
 	virtual void PostLogin(APlayerController* NewPlayer) override;

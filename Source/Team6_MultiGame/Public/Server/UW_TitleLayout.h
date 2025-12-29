@@ -21,6 +21,9 @@ protected:
 	virtual void NativeConstruct() override;
 
 	UFUNCTION()
+	void LoginButtonClicked();
+
+	UFUNCTION()
 	void LobbyButtonClicked();
 
 	UFUNCTION()
@@ -28,7 +31,10 @@ protected:
 
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = USTitleWidget, Meta = (AllowPrivateAccess, BindWidget))
-	TObjectPtr<UButton> PlayButton;
+	TObjectPtr<UButton> LoginButton;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = USTitleWidget, Meta = (AllowPrivateAccess, BindWidget))
+	TObjectPtr<UButton> LobbyButton;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = USTitleWidget, Meta = (AllowPrivateAccess, BindWidget))
 	TObjectPtr<UButton> ExitButton;

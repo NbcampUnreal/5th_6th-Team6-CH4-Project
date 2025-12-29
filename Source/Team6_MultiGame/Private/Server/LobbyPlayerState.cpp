@@ -12,16 +12,34 @@ ALobbyPlayerState::ALobbyPlayerState()
 
 void ALobbyPlayerState::SetReady(bool bNewReady)
 {
+	if (!HasAuthority())
+	{
+		return;
+	}
+
 	if (bReady == bNewReady)
 	{
 		return;
 	}
 
 	bReady = bNewReady;
-
-	// 서버에서도 즉시 UI 갱신 이벤트가 필요하면 브로드캐스트
-	// (클라는 OnRep_Ready에서 브로드캐스트됨)
 	OnReadyChanged.Broadcast(this, bReady);
+}
+
+void ALobbyPlayerState::SetIsLeader(bool bNewLeader)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	if (bIsLeader == bNewLeader)
+	{
+		return;
+	}
+
+	bIsLeader = bNewLeader;
+	UE_LOG(LogTemp, Warning, TEXT("[LobbyPS] %s IsLeader=%d"), *GetName(), bIsLeader);
 }
 
 void ALobbyPlayerState::OnRep_Ready()
@@ -31,9 +49,15 @@ void ALobbyPlayerState::OnRep_Ready()
 	OnReadyChanged.Broadcast(this, bReady);
 }
 
+void ALobbyPlayerState::OnRep_IsLeader()
+{
+	UE_LOG(LogTemp, Warning, TEXT("[OnRep_IsLeader] %s IsLeader=%d"), *GetName(), bIsLeader);
+}
+
 void ALobbyPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ALobbyPlayerState, bReady);
+	DOREPLIFETIME(ALobbyPlayerState, bIsLeader);
 }

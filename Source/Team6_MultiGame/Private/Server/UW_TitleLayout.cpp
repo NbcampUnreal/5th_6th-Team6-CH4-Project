@@ -6,6 +6,9 @@
 #include "Components/EditableText.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Server/TitlePlayerController.h"
+#include "Server/VoiceLobbySubsystem.h"
+#include "Server/LoginSubsystem.h"
+
 
 UUW_TitleLayout::UUW_TitleLayout(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -14,8 +17,21 @@ UUW_TitleLayout::UUW_TitleLayout(const FObjectInitializer& ObjectInitializer)
 
 void UUW_TitleLayout::NativeConstruct()
 {
-	PlayButton.Get()->OnClicked.AddDynamic(this, &ThisClass::LobbyButtonClicked);
+    LoginButton.Get()->OnClicked.AddDynamic(this, &ThisClass::LoginButtonClicked);
+    LobbyButton.Get()->OnClicked.AddDynamic(this, &ThisClass::LobbyButtonClicked);
 	ExitButton.Get()->OnClicked.AddDynamic(this, &ThisClass::ExitButtonClicked);
+}
+
+void UUW_TitleLayout::LoginButtonClicked()
+{
+    if (UGameInstance* GI = GetGameInstance())
+    {
+        auto* LoginSS = GI->GetSubsystem<ULoginSubsystem>();
+        if (LoginSS && !LoginSS->IsLoggedIn())
+        {
+            LoginSS->LoginEOS_AccountPortal(); //  일반 로그인
+        }
+    }
 }
 
 void UUW_TitleLayout::LobbyButtonClicked()
@@ -41,7 +57,10 @@ void UUW_TitleLayout::LobbyButtonClicked()
         return;
     }
 
-    PC->JoinServer(ServerAddr);
+    if (PC)
+    {
+        PC->JoinServer(ServerAddr);
+    }
 }
 
 void UUW_TitleLayout::ExitButtonClicked()
