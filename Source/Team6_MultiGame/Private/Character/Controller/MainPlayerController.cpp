@@ -339,6 +339,7 @@ void AMainPlayerController::Server_SendFire_Implementation()
 	if (TargetSquirrel)
 	{
 		TargetSquirrel->Fire_ServerAuth();
+		UE_LOG(LogTemp, Warning, TEXT("[Camera] Fire:Fire_ServerAuth()"));
 	}
 }
 

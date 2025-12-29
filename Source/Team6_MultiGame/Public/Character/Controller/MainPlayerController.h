@@ -90,6 +90,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	UInputAction* IA_MouseR;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	UInputAction* IA_Fire;
 
 

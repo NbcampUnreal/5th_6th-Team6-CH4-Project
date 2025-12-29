@@ -27,11 +27,6 @@ public:
 
 	void Fire_ServerAuth(); // 서버에서만 호출될 발사
 
-	// 서버에서만 호출: 새 총 장착
-	void EquipGun_ServerAuth(TSubclassOf<AALCGunBase> NewGunClass);
-
-	// 서버에서만 호출: 총 해제
-	void UnequipGun_ServerAuth();
 
 
 protected:
@@ -39,14 +34,14 @@ protected:
 	virtual void BeginPlay() override;
 
 	// 현재 장착한 총(서버가 세팅, 클라는 OnRep에서 부착)
-	UPROPERTY(ReplicatedUsing = OnRep_EquippedGun)
-	AALCGunBase* EquippedGun = nullptr;
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentGun)
+	AALCGunBase* CurrentGun = nullptr;
 
 	UFUNCTION()
-	void OnRep_EquippedGun();
+	void OnRep_CurrentGun(); // [FIX]
 
-	// 부착 공통 함수(서버/클라 둘 다 씀)
-	void AttachEquippedGun();
+	// [FIX] Attach는 단일 함수로
+	void AttachCurrentGun();
 
 
 	//======== HP구현 ==========
@@ -56,9 +51,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Status")
 	float MaxHP = 100.f;
 
-	//=======총기 장착 추가======
-	UPROPERTY(Replicated)
-	AALCGunBase* CurrentGun;
+
 
 public:
 	// Called every frame
@@ -86,7 +79,7 @@ public:
 		void OnRep_ViewRot();                    // [ADD]
 
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
-	FName WeaponSocketName = TEXT("hand_r");
+	FName WeaponSocketName = TEXT("Hand_R_Socket");
 
 
 	// Healable 인터페이스 구현
@@ -96,5 +89,5 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerEquipGun(AALCGunBase* NewGun);
 
-	void ServerEquipGun_Implementation(AALCGunBase* NewGun);
+	
 };
