@@ -4,22 +4,43 @@
 #include "KYG/ALCGunBase.h"
 #include "Character/Squirrel.h"  
 #include "GameFramework/Character.h"
-#include "KYG/KYGTestCharacter.h"
+#include "KYG/KYGTestCharacter.h"	//나중에 지워도됨
+#include "Character/Squirrel.h"
 
 //아이템을 주웠을 때 호출되는 함수
 void AALCGunItem::OnPickedUp(ACharacter* Character)
 {
 	//서버에서만 아이템 획득/장착 처리
-	if (!HasAuthority() || !GunClass || !Character) 
-	{ return; }
-
-
-	ASquirrel* Squirrel = Cast<ASquirrel>(Character);
-	if (!Squirrel)
+	if (!HasAuthority() || !GunClass || !Character)
 		return;
 
-	// 총 스폰/장착은 다람쥐가 전담
-	Squirrel->EquipGun_ServerAuth(GunClass);
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	// Squirrel로 캐스팅
+	ASquirrel* Squirrel = Cast<ASquirrel>(Character);
+	if (!Squirrel)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[GunItem] Character %s is not ASquirrel"), *Character->GetName());
+		return;
+	}
+
+	FActorSpawnParameters Params;
+	Params.Owner = Squirrel;
+	Params.Instigator = Squirrel;
+
+	AALCGunBase* NewGun = World->SpawnActor<AALCGunBase>(GunClass, Params);
+	if (!NewGun)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[GunItem] Failed to spawn gun"));
+		return;
+	}
+
+	// Squirrel에게 장착 요청 (서버 함수)
+	Squirrel->ServerEquipGun(NewGun);
+
+	UE_LOG(LogTemp, Warning, TEXT("[GunItem] %s picked up gun %s"),
+		*Squirrel->GetName(), *NewGun->GetName());
 
 
 

@@ -9,6 +9,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Character/Controller/MainPlayerController.h"
 #include "KYG/ALCGunBase.h"
+#include "Components/CapsuleComponent.h"
 
 // Sets default values
 ASquirrel::ASquirrel()
@@ -50,7 +51,15 @@ ASquirrel::ASquirrel()
     Camera->SetupAttachment(SpringArm);
     Camera->bUsePawnControlRotation = false;
    
- 
+
+    //HP추가
+    HP = MaxHP;
+
+    GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    GetCapsuleComponent()->SetCollisionObjectType(ECC_Pawn);
+    GetCapsuleComponent()->SetCollisionResponseToAllChannels(ECR_Block);
+    GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+    GetCapsuleComponent()->SetGenerateOverlapEvents(true);
 }
 
 // [ADD] RepNotify: 모든 클라에서 스프링암 회전 반영
@@ -62,6 +71,8 @@ void ASquirrel::OnRep_ViewRot() // [ADD]
         SpringArm->SetWorldRotation(FRotator(RepViewRot.Pitch, GetActorRotation().Yaw, 0.f));
     }
 }
+
+
 
 // [ADD] 서버 권위로 Look 누적/클램프/적용
 void ASquirrel::ApplyLook_ServerAuth(const FVector2D& LookInput) // [ADD]
@@ -148,6 +159,8 @@ void ASquirrel::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 
     DOREPLIFETIME(ASquirrel, EquippedGun);
     DOREPLIFETIME(ASquirrel, RepViewRot);
+    DOREPLIFETIME(ASquirrel, HP);   //HP 상태 
+    DOREPLIFETIME(ASquirrel, CurrentGun);  //현재 무기 상태 알림
 }
 
 void ASquirrel::EquipGun_ServerAuth(TSubclassOf<AALCGunBase> NewGunClass)
@@ -212,4 +225,44 @@ void ASquirrel::AttachEquippedGun()
         FAttachmentTransformRules::SnapToTargetNotIncludingScale,
         WeaponSocketName
     );
+}
+
+//회복 관련 
+void ASquirrel::ReceiveHeal_Implementation(float HealAmount)
+{
+    if (!HasAuthority())
+    { return; }
+
+    HP = FMath::Clamp(HP + HealAmount, 0.f, MaxHP);
+
+    UE_LOG(LogTemp, Warning, TEXT("[Squirrel] Healed by %.1f, HP=%.1f"), HealAmount, HP);
+
+    // 여기서 나주에 HUD 업데이트용 멀티캐스트 RPC, 또는 HP를 바인딩한 UMG 등이 있으면 자동으로 반영시킬 수 있음
+}
+
+//총기 장착 함수
+void ASquirrel::ServerEquipGun_Implementation(AALCGunBase* NewGun)
+{
+    if (!HasAuthority() || !NewGun)
+        return;
+
+    // 기존 총 있으면 제거
+    if (CurrentGun && CurrentGun != NewGun)
+    {
+        CurrentGun->Destroy();
+    }
+
+    CurrentGun = NewGun;
+
+    // 캐릭터 메시에 붙이기 (손 소켓 이름은 본인 캐릭터에 맞게)
+    if (USkeletalMeshComponent* MeshComp = GetMesh())
+    {
+        CurrentGun->AttachToComponent(
+            MeshComp,
+            FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+            TEXT("Hand_R_Socket")
+        );
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("[Squirrel] Equipped Gun: %s"), *GetNameSafe(CurrentGun));
 }
