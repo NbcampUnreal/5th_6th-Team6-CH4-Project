@@ -15,7 +15,18 @@ ASquirrel::ASquirrel()
 {
     PrimaryActorTick.bCanEverTick = true;
 
-  
+    bReplicates = true;
+    SetReplicateMovement(true);
+    // ★ 서버에서 클라로 더 자주 보내게
+    NetUpdateFrequency = 100.f;        // 기본보다 크게 (예: 100)
+    MinNetUpdateFrequency = 30.f;      // 최소 보장 (예: 30)
+    NetPriority = 3.f;                // 우선순위 상승
+
+    // 협동 소규모 게임이면 켜도 됨(멀리 있어도 항상 relevant)
+    bAlwaysRelevant = true;
+
+    // (선택) Dormancy 쓰지 않도록
+    NetDormancy = DORM_Awake;
 
     // 이동 방향만 회전에 영향
     GetCharacterMovement()->bOrientRotationToMovement = false;
@@ -39,8 +50,7 @@ ASquirrel::ASquirrel()
     Camera->SetupAttachment(SpringArm);
     Camera->bUsePawnControlRotation = false;
    
-    bReplicates = true;
-    SetReplicateMovement(true);
+ 
 }
 
 // [ADD] RepNotify: 모든 클라에서 스프링암 회전 반영
@@ -74,6 +84,14 @@ void ASquirrel::ApplyLook_ServerAuth(const FVector2D& LookInput) // [ADD]
         SpringArm->SetWorldRotation(FRotator(RepViewRot.Pitch, NewYaw, 0.f));
     }
 
+    // ★ 너무 자주하면 네트워크 폭증하니 30Hz 정도로 제한
+    static float LastForceTime = 0.f;
+    const float Now = GetWorld()->TimeSeconds;
+    if (Now - LastForceTime >= (1.f / 30.f))
+    {
+        ForceNetUpdate();
+        LastForceTime = Now;
+    }
 }
 
 
