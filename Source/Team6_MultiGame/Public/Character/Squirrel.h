@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "KYG/LCHealable.h"		//회복아이템을 위해 추가
 #include "Squirrel.generated.h"
 
 class USpringArmComponent;
@@ -11,7 +12,7 @@ class UCameraComponent;
 class AALCGunBase;
 
 UCLASS()
-class TEAM6_MULTIGAME_API ASquirrel : public ACharacter
+class TEAM6_MULTIGAME_API ASquirrel : public ACharacter, public ILCHealable	//HP관련 처리 추가
 {
 	GENERATED_BODY()
 
@@ -48,6 +49,17 @@ protected:
 	void AttachEquippedGun();
 
 
+	//======== HP구현 ==========
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Status")
+	float HP;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Status")
+	float MaxHP = 100.f;
+
+	//=======총기 장착 추가======
+	UPROPERTY(Replicated)
+	AALCGunBase* CurrentGun;
+
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -76,4 +88,13 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	FName WeaponSocketName = TEXT("hand_r");
 
+
+	// Healable 인터페이스 구현
+	virtual void ReceiveHeal_Implementation(float HealAmount) override;
+
+	//=====총기 장착 함수 ======
+	UFUNCTION(Server, Reliable)
+	void ServerEquipGun(AALCGunBase* NewGun);
+
+	void ServerEquipGun_Implementation(AALCGunBase* NewGun);
 };
