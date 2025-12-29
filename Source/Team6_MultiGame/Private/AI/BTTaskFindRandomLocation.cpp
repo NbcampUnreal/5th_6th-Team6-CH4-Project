@@ -16,7 +16,7 @@ EBTNodeResult::Type UBTTaskFindRandomLocation::ExecuteTask(UBehaviorTreeComponen
     APawn* AIPawn = AIController->GetPawn();
     if (!AIPawn) return EBTNodeResult::Failed;
 
-    // 서버 권한 확인 (태스크는 기본적으로 서버에서 돌지만 이중 확인)
+    // 서버 권한 확인 
     if (!AIPawn->HasAuthority()) return EBTNodeResult::Failed;
 
     FVector Origin = AIPawn->GetActorLocation();
@@ -28,7 +28,7 @@ EBTNodeResult::Type UBTTaskFindRandomLocation::ExecuteTask(UBehaviorTreeComponen
     // 반경 내 이동 가능한 점 찾기
     if (NavSystem->GetRandomReachablePointInRadius(Origin, 3000.0f, RandomLocation))
     {
-        // 블랙보드에 위치 저장 - 이 값은 서버 블랙보드에 저장되며 MoveTo 노드가 이를 참조
+        // 블랙보드에 위치 저장 
         OwnerComp.GetBlackboardComponent()->SetValueAsVector(TEXT("PatrolLocation"), RandomLocation.Location);
         return EBTNodeResult::Succeeded;
     }
