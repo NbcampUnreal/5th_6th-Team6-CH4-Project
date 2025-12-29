@@ -72,7 +72,7 @@ public:
 	class UCameraComponent* Camera;
 
 	// === Replicated View Rotation (카메라 회전 진실값) ===
-	UPROPERTY(ReplicatedUsing = OnRep_ViewRot) // [ADD]
+	UPROPERTY(ReplicatedUsing = OnRep_ViewRot, BlueprintReadOnly, Category = "View") // [ADD]
 		FRotator RepViewRot;                    // [ADD]
 
 	UFUNCTION()                              // [ADD]

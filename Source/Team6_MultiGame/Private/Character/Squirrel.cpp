@@ -135,8 +135,11 @@ void ASquirrel::Move(const FVector2D& MoveInput)
 {
   
     if (MoveInput.IsNearlyZero(0.01f))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Move] INPUT ZERO Auth=%d Controller=%s Vel=%.1f"),
+            HasAuthority(), *GetNameSafe(GetController()), GetVelocity().Size());
         return;
-
+    }
     AddMovementInput(GetActorForwardVector(), MoveInput.Y); // ÀüÈÄ(W/S)
     AddMovementInput(GetActorRightVector(), MoveInput.X); // ÁÂ¿ì(A/D)
 
