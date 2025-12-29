@@ -1,6 +1,7 @@
 #include "AI/BTTask_Attack.h"
 #include "AIController.h"
-#include "AI/BaseAICharacter.h" 
+#include "AI/BaseAICharacter.h"
+#include "Animation/AnimMontage.h" // 몽타주 정보 사용을 위해 포함
 
 UBTTask_Attack::UBTTask_Attack()
 {
@@ -12,21 +13,14 @@ EBTNodeResult::Type UBTTask_Attack::ExecuteTask(UBehaviorTreeComponent& OwnerCom
     AAIController* AIController = OwnerComp.GetAIOwner();
     if (!AIController) return EBTNodeResult::Failed;
 
-    APawn* AIPawn = AIController->GetPawn();
-    if (!AIPawn) return EBTNodeResult::Failed;
-
-    // 1.  AI 캐릭터 클래스로 캐스팅
-    ABaseAICharacter* MyAI = Cast<ABaseAICharacter>(AIPawn);
-    if (MyAI)
+    ABaseAICharacter* MyAI = Cast<ABaseAICharacter>(AIController->GetPawn());
+    if (MyAI && MyAI->HasAuthority())
     {
-        // 2. 서버에서만 실행되도록 보장 
-        if (MyAI->HasAuthority())
-        {
-            // 3. 공격 함수 호출
-            MyAI->PlayAttackMontage();
+        // 1. 공격 함수 호출
+        MyAI->PlayAttackMontage();
 
-            return EBTNodeResult::Succeeded;
-        }
+      
+        return EBTNodeResult::Succeeded;
     }
 
     return EBTNodeResult::Failed;
