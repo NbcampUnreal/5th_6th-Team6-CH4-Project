@@ -49,6 +49,8 @@ private:
 	IOnlineSessionPtr GetSessionInterface() const;
 
 private:
+	bool bFindInProgress = false;
+
 	int32 PendingMaxPlayers = 4;
 
 	// Find 결과가 없을 때 Create할지 여부 (CreateOrJoin만 true)

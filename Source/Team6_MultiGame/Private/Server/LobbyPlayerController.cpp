@@ -49,6 +49,18 @@ void ALobbyPlayerController::BeginPlay()
 
 void ALobbyPlayerController::TryInitVoiceLobby()
 {
+    if (UGameInstance* GI = GetGameInstance())
+    {
+        if (auto* LoginSS = GI->GetSubsystem<ULoginSubsystem>())
+        {
+            if (!LoginSS->IsLoggedIn())
+            {
+                UE_LOG(LogTemp, Warning, TEXT("[LobbyPC] Skip voice init: not logged in yet"));
+                return;
+            }
+        }
+    }
+
     if (!IsLocalController())
     {
         return;

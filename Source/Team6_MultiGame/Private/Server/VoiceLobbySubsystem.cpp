@@ -84,10 +84,22 @@ void UVoiceLobbySubsystem::FindAndJoinVoiceLobby()
 
 void UVoiceLobbySubsystem::StartFind(bool bInCreateIfNotFound)
 {
+	if (bFindInProgress)
+	{
+		UE_LOG(LogTemp, VeryVerbose, TEXT("[VoiceLobby] StartFind ignored: already in progress"));
+		return;
+	}
+	bFindInProgress = true;;
+
 	bCreateIfNotFound = bInCreateIfNotFound;
 
 	IOnlineSessionPtr Session = GetSessionInterface();
-	if (!Session.IsValid()) return;
+	if (!Session.IsValid())
+	{
+		bFindInProgress = false; //  실패하면 반드시 풀어주기
+		UE_LOG(LogTemp, Warning, TEXT("[VoiceLobby] StartFind failed: Session invalid"));
+		return;
+	}
 
 	SessionSearch = MakeShared<FOnlineSessionSearch>();
 	SessionSearch->bIsLanQuery = false;
@@ -109,8 +121,14 @@ void UVoiceLobbySubsystem::StartFind(bool bInCreateIfNotFound)
 
 void UVoiceLobbySubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 {
+	bFindInProgress = false;
+
 	IOnlineSessionPtr Session = GetSessionInterface();
 	if (!Session.IsValid()) return;
+
+	UE_LOG(LogTemp, Warning, TEXT("[VoiceLobby] FindDone: Success=%d Results=%d"),
+		bWasSuccessful ? 1 : 0,
+		SessionSearch.IsValid() ? SessionSearch->SearchResults.Num() : -1);
 
 	Session->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteHandle);
 
