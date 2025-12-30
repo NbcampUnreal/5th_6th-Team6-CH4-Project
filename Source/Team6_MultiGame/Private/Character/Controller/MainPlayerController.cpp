@@ -247,10 +247,9 @@ void AMainPlayerController::OnMoveTriggered(const FInputActionValue& Value)
 	if (Move.IsNearlyZero(0.01f))
 		return;
 
-	
+
 	Server_SendMove(Move);
 
-	
 	if (KeyGuideWidget)
 	{
 		KeyGuideWidget->SetKeyPressed("W", Move.X > 0.f);
