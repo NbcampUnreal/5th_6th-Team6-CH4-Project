@@ -34,4 +34,14 @@ private:
 
 	void OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error);
 	IOnlineIdentityPtr GetIdentityInterface() const;
+
+private:
+	FString CachedAuthToken;
+	FString CachedEasId;
+	FString CachedPuid;
+
+public:
+	const FString& GetAuthToken() const { return CachedAuthToken; }
+	const FString& GetPuid() const { return CachedPuid; }
+	const FString& GetEasId() const { return CachedEasId; }
 };

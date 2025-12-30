@@ -1,246 +1,387 @@
 
 
 #include "Server/VoiceLobbySubsystem.h"
+
+#include "VoiceChat.h"
+#include "VoiceChatResult.h"
+#include "HAL/PlatformMisc.h"
 #include "OnlineSubsystem.h"
-#include "OnlineSessionSettings.h"
-#include "OnlineSubsystemUtils.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 
-
-const FName UVoiceLobbySubsystem::VOICE_SESSION_NAME(TEXT("VOICE_LOBBY"));
-
-IOnlineSessionPtr UVoiceLobbySubsystem::GetSessionInterface() const
+static FString NormalizeClientBaseUrl(const FString& In)
 {
-	IOnlineSubsystem* OSS = IOnlineSubsystem::Get(TEXT("EOS")); // EOS를 명시(권장)
-	if (!OSS) return nullptr;
-	return OSS->GetSessionInterface();
+    FString Url = In;
+    Url.TrimStartAndEndInline();
+
+    // JSON 파싱/로그에서 섞일 수 있는 개행 제거만
+    Url.ReplaceInline(TEXT("\r"), TEXT(""));
+    Url.ReplaceInline(TEXT("\n"), TEXT(""));
+
+    //  절대 /ws?ms=... 같은 path/query를 잘라내지 마
+    return Url;
 }
 
-bool UVoiceLobbySubsystem::HasVoiceLobbySession() const
+static FString GetEOSAuthToken(int32 LocalUserNum = 0)
 {
-	IOnlineSessionPtr Session = GetSessionInterface();
-	if (!Session.IsValid()) return false;
-	return (Session->GetNamedSession(VOICE_SESSION_NAME) != nullptr);
+    if (IOnlineSubsystem* OSS = IOnlineSubsystem::Get(TEXT("EOS")))
+    {
+        if (IOnlineIdentityPtr Identity = OSS->GetIdentityInterface())
+        {
+            return Identity->GetAuthToken(LocalUserNum);
+        }
+    }
+    return TEXT("");
 }
 
-
-void UVoiceLobbySubsystem::CreateOrJoinVoiceLobby(int32 MaxPlayers)
+static FString GetLocalUniqueIdString_Full()
 {
-	PendingMaxPlayers = MaxPlayers;
-
-	IOnlineSessionPtr Session = GetSessionInterface();
-	if (!Session.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("[VoiceLobby] SessionInterface invalid (EOS not ready?)"));
-		return;
-	}
-
-	if (Session->GetNamedSession(VOICE_SESSION_NAME))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[VoiceLobby] Already have VOICE session"));
-		return;
-	}
-
-	StartFind(/*bInCreateIfNotFound=*/true);
+    IOnlineSubsystem* OSS = IOnlineSubsystem::Get(TEXT("EOS"));
+    IOnlineIdentityPtr Identity = OSS ? OSS->GetIdentityInterface() : nullptr;
+    TSharedPtr<const FUniqueNetId> NetId = Identity.IsValid() ? Identity->GetUniquePlayerId(0) : nullptr;
+    return NetId.IsValid() ? NetId->ToString() : TEXT("");
 }
 
-void UVoiceLobbySubsystem::CreateVoiceLobby(int32 MaxPlayers)
+static bool RebuildVoiceCredsJson(const FString& InJson, FString& OutJson)
 {
-	PendingMaxPlayers = MaxPlayers;
+    TSharedPtr<FJsonObject> Obj;
+    const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(InJson);
 
-	IOnlineSessionPtr Session = GetSessionInterface();
-	if (!Session.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("[VoiceLobby] SessionInterface invalid (EOS not ready?)"));
-		return;
-	}
+    if (!FJsonSerializer::Deserialize(Reader, Obj) || !Obj.IsValid())
+        return false;
 
-	if (Session->GetNamedSession(VOICE_SESSION_NAME))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[VoiceLobby] Already have VOICE session"));
-		return;
-	}
+    FString ClientBaseUrl, ParticipantToken;
 
-	bCreateIfNotFound = false;
-	StartCreate();
+    if (!Obj->TryGetStringField(TEXT("ClientBaseUrl"), ClientBaseUrl))
+        Obj->TryGetStringField(TEXT("clientBaseUrl"), ClientBaseUrl);
+
+    if (!Obj->TryGetStringField(TEXT("ParticipantToken"), ParticipantToken))
+        Obj->TryGetStringField(TEXT("participantToken"), ParticipantToken);
+
+    ClientBaseUrl.TrimStartAndEndInline();
+    ParticipantToken.TrimStartAndEndInline();
+
+    const FString BaseUrlToUse = ClientBaseUrl;
+
+    UE_LOG(LogTemp, Warning, TEXT("[VoiceToken] BaseUrl RAW = %s"), *ClientBaseUrl);
+    UE_LOG(LogTemp, Warning, TEXT("[VoiceToken] BaseUrl NORM= %s"), *BaseUrlToUse);
+
+    if (BaseUrlToUse.IsEmpty() || ParticipantToken.IsEmpty())
+        return false;
+
+    const FString FullId = GetLocalUniqueIdString_Full();
+    UE_LOG(LogTemp, Warning, TEXT("[VoiceToken] OverrideUserId=%s"), *FullId);
+
+    TSharedRef<FJsonObject> Clean = MakeShared<FJsonObject>();
+    Clean->SetStringField(TEXT("ClientBaseUrl"), BaseUrlToUse);
+    Clean->SetStringField(TEXT("ParticipantToken"), ParticipantToken);
+
+    if (!FullId.IsEmpty())
+    {
+        Clean->SetStringField(TEXT("OverrideUserId"), FullId);
+    }
+ 
+    FString Out;
+    const TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>> Writer =
+        TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&Out);
+    FJsonSerializer::Serialize(Clean, Writer);
+
+    OutJson = Out;
+    return true;
 }
 
-void UVoiceLobbySubsystem::FindAndJoinVoiceLobby()
+void UVoiceLobbySubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
-	IOnlineSessionPtr Session = GetSessionInterface();
-	if (!Session.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("[VoiceLobby] SessionInterface invalid (EOS not ready?)"));
-		return;
-	}
+    Super::Initialize(Collection);
 
-	if (Session->GetNamedSession(VOICE_SESSION_NAME))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[VoiceLobby] Already have VOICE session"));
-		return;
-	}
+    VoiceChat = nullptr;
+    VoiceUser = nullptr;
 
-	StartFind(/*bInCreateIfNotFound=*/false);
+    bVoiceReady = false;
+    bVoiceConnected = false;
+    bVoiceLoggedIn = false;
+
+    bConnectRequested = false;
+    bLoginRequested = false;
+
+    PendingLoginPlayerName.Empty();
+    PendingLoginCredentials.Empty();
+    PendingChannelName.Empty();
+    PendingChannelCreds.Empty();
 }
 
-void UVoiceLobbySubsystem::StartFind(bool bInCreateIfNotFound)
+void UVoiceLobbySubsystem::Deinitialize()
 {
-	if (bFindInProgress)
-	{
-		UE_LOG(LogTemp, VeryVerbose, TEXT("[VoiceLobby] StartFind ignored: already in progress"));
-		return;
-	}
-	bFindInProgress = true;;
-
-	bCreateIfNotFound = bInCreateIfNotFound;
-
-	IOnlineSessionPtr Session = GetSessionInterface();
-	if (!Session.IsValid())
-	{
-		bFindInProgress = false; //  실패하면 반드시 풀어주기
-		UE_LOG(LogTemp, Warning, TEXT("[VoiceLobby] StartFind failed: Session invalid"));
-		return;
-	}
-
-	SessionSearch = MakeShared<FOnlineSessionSearch>();
-	SessionSearch->bIsLanQuery = false;
-	SessionSearch->MaxSearchResults = 50;
-
-	//  VOICE_ONLY 세션만 찾도록 필터(중요)
-	SessionSearch->QuerySettings.Set(FName("VOICE_ONLY"), true, EOnlineComparisonOp::Equals);
-
-	//  PRESENCE 기반은 혼선(EOS_InvalidUser) 유발할 때가 많아서 제거 권장
-	// SessionSearch->QuerySettings.Set(FName(TEXT("PRESENCE")), true, EOnlineComparisonOp::Equals);
-
-	OnFindSessionsCompleteHandle =
-		Session->AddOnFindSessionsCompleteDelegate_Handle(
-			FOnFindSessionsCompleteDelegate::CreateUObject(this, &ThisClass::OnFindSessionsComplete));
-
-	UE_LOG(LogTemp, Warning, TEXT("[VoiceLobby] FindSessions... (CreateIfNotFound=%d)"), bCreateIfNotFound ? 1 : 0);
-	Session->FindSessions(/*LocalUserNum=*/0, SessionSearch.ToSharedRef());
+    // 엔진/프로바이더마다 Logout/Disconnect 시그니처가 달라서 여기서는 안전하게 포인터만 정리
+    VoiceUser = nullptr;
+    VoiceChat = nullptr;
+    // 필요 시 Leave/Logout/Disconnect 정리
+    Super::Deinitialize();
 }
 
-void UVoiceLobbySubsystem::OnFindSessionsComplete(bool bWasSuccessful)
+void UVoiceLobbySubsystem::EnsureVoiceReady()
 {
-	bFindInProgress = false;
+    if (bVoiceReady) return;
 
-	IOnlineSessionPtr Session = GetSessionInterface();
-	if (!Session.IsValid()) return;
+    VoiceChat = IVoiceChat::Get();
+    if (!VoiceChat)
+    {
+        UE_LOG(LogTemp, Error, TEXT("[Voice] IVoiceChat::Get() failed"));
+        return;
+    }
 
-	UE_LOG(LogTemp, Warning, TEXT("[VoiceLobby] FindDone: Success=%d Results=%d"),
-		bWasSuccessful ? 1 : 0,
-		SessionSearch.IsValid() ? SessionSearch->SearchResults.Num() : -1);
+    if (!VoiceChat->Initialize())
+    {
+        UE_LOG(LogTemp, Error, TEXT("[Voice] Initialize failed"));
+        return;
+    }
 
-	Session->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteHandle);
+    VoiceUser = VoiceChat->CreateUser();
+    if (!VoiceUser)
+    {
+        UE_LOG(LogTemp, Error, TEXT("[Voice] CreateUser failed"));
+        return;
+    }
 
-	if (bWasSuccessful && SessionSearch.IsValid())
-	{
-		for (const FOnlineSessionSearchResult& R : SessionSearch->SearchResults)
-		{
-			bool bIsVoiceLobby = false;
-			R.Session.SessionSettings.Get(FName("VOICE_ONLY"), bIsVoiceLobby);
-
-			if (bIsVoiceLobby)
-			{
-				UE_LOG(LogTemp, Warning, TEXT("[VoiceLobby] Found voice lobby -> Join"));
-
-				OnJoinSessionCompleteHandle =
-					Session->AddOnJoinSessionCompleteDelegate_Handle(
-						FOnJoinSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnJoinSessionComplete));
-
-				Session->JoinSession(0, VOICE_SESSION_NAME, R);
-				return;
-			}
-		}
-	}
-
-	//  여기서 갈림: CreateOrJoin만 Create, FindAndJoin은 그냥 리턴
-	if (!bCreateIfNotFound)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[VoiceLobby] No voice lobby found (join-only mode). Will retry later."));
-		return;
-	}
-
-	UE_LOG(LogTemp, Warning, TEXT("[VoiceLobby] No voice lobby found -> Create (leader mode)"));
-	StartCreate();
+    bVoiceReady = true;
+    UE_LOG(LogTemp, Warning, TEXT("[Voice] Ready=1"));
 }
 
-void UVoiceLobbySubsystem::StartCreate()
+bool UVoiceLobbySubsystem::JoinVoiceRoom(const FString& InRoomId, const FString& InTokenOrCredentialsJson)
 {
-	IOnlineSessionPtr Session = GetSessionInterface();
-	if (!Session.IsValid()) return;
-
-	FOnlineSessionSettings Settings;
-	Settings.bIsLANMatch = false;
-	Settings.bShouldAdvertise = true;
-	Settings.bAllowJoinInProgress = true;
-	Settings.NumPublicConnections = PendingMaxPlayers;
-
-	Settings.bUseLobbiesIfAvailable = true;
-	Settings.bUseLobbiesVoiceChatIfAvailable = true;
-
-	//  필요 없으면 끄는 게 안전 (원하면 true로 되돌려도 됨)
-	Settings.bUsesPresence = false;
-
-	Settings.Set(FName("VOICE_ONLY"), true, EOnlineDataAdvertisementType::ViaOnlineService);
-
-	OnCreateSessionCompleteHandle =
-		Session->AddOnCreateSessionCompleteDelegate_Handle(
-			FOnCreateSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnCreateSessionComplete));
-
-	Session->CreateSession(0, VOICE_SESSION_NAME, Settings);
-
-	if (IOnlineSubsystem* OSS = IOnlineSubsystem::Get(TEXT("EOS")))
-	{
-		if (IOnlineIdentityPtr Identity = OSS->GetIdentityInterface(); Identity.IsValid())
-		{
-			if (TSharedPtr<const FUniqueNetId> MyId = Identity->GetUniquePlayerId(0); MyId.IsValid())
-			{
-				Settings.MemberSettings.FindOrAdd(MyId.ToSharedRef());
-			}
-		}
-	}
+    UE_LOG(LogTemp, Warning, TEXT("[VoiceToken] JoinChannel about to call. len=%d head=%s"),
+        InTokenOrCredentialsJson.Len(),
+        *InTokenOrCredentialsJson.Left(200)
+    );
+    // 외부(LobbyPC)에서 이미 이 이름으로 부르니까 유지.
+    // 내부에서는 “로그인/커넥트 순서 보장 + pending join”만 처리한다.
+    JoinVoiceChannel(InRoomId, InTokenOrCredentialsJson);
+    return bVoiceLoggedIn; // 의미 있는 true는 “로그인 상태로 진입했는지” 정도로만 사용
 }
 
-void UVoiceLobbySubsystem::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
+void UVoiceLobbySubsystem::EnsureVoiceConnected()
 {
-	IOnlineSessionPtr Session = GetSessionInterface();
-	if (!Session.IsValid()) return;
+    EnsureVoiceReady();
+    if (!bVoiceReady || !VoiceChat) return;
+    if (bVoiceConnected) return;
+    if (bConnectRequested) return;
 
-	Session->ClearOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteHandle);
+    bConnectRequested = true;
 
-	UE_LOG(LogTemp, Warning, TEXT("[VoiceLobby] CreateSession(%s) = %d"), *SessionName.ToString(), bWasSuccessful);
+    VoiceChat->Connect(
+        FOnVoiceChatConnectCompleteDelegate::CreateUObject(this, &ThisClass::OnVoiceConnectComplete)
+    );
 }
 
-void UVoiceLobbySubsystem::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
+FString UVoiceLobbySubsystem::GetDefaultPlayerNamePUID() const
 {
-	IOnlineSessionPtr Session = GetSessionInterface();
-	if (!Session.IsValid()) return;
+    IOnlineSubsystem* OSS = IOnlineSubsystem::Get(TEXT("EOS"));
+    IOnlineIdentityPtr Identity = OSS ? OSS->GetIdentityInterface() : nullptr;
 
-	Session->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteHandle);
+    TSharedPtr<const FUniqueNetId> NetId = Identity.IsValid() ? Identity->GetUniquePlayerId(0) : nullptr;
+    FString IdStr = NetId.IsValid() ? NetId->ToString() : TEXT("");
 
-	UE_LOG(LogTemp, Warning, TEXT("[VoiceLobby] JoinSession(%s) Result=%d"), *SessionName.ToString(), (int32)Result);
+    // EOSPlus면 "EpicAccountId|ProductUserId"일 수 있어서 뒤만 사용
+    FString ProductUserIdStr = IdStr;
+    IdStr.Split(TEXT("|"), nullptr, &ProductUserIdStr);
+
+    return ProductUserIdStr;
 }
 
-void UVoiceLobbySubsystem::LeaveVoiceLobby()
+void UVoiceLobbySubsystem::TryProcessPending()
 {
-	IOnlineSessionPtr Session = GetSessionInterface();
-	if (!Session.IsValid()) return;
+    // Connect 완료 전이면 Login/Join을 뒤로 미룸
+    if (!bVoiceConnected)
+        return;
 
-	if (!Session->GetNamedSession(VOICE_SESSION_NAME))
-		return;
+    // Login 요청이 있으면 먼저 처리
+    if (bLoginRequested && !bVoiceLoggedIn && VoiceUser)
+    {
+        const FPlatformUserId PlatformId = FPlatformMisc::GetPlatformUserForUserIndex(0);
 
-	OnDestroySessionCompleteHandle =
-		Session->AddOnDestroySessionCompleteDelegate_Handle(
-			FOnDestroySessionCompleteDelegate::CreateUObject(this, &ThisClass::OnDestroySessionComplete));
+        VoiceUser->Login(
+            PlatformId,
+            PendingLoginPlayerName,
+            PendingLoginCredentials,
+            FOnVoiceChatLoginCompleteDelegate::CreateUObject(this, &ThisClass::OnVoiceLoginComplete)
+        );
 
-	Session->DestroySession(VOICE_SESSION_NAME);
+        bLoginRequested = false;
+        return;
+    }
+
+    // 로그인 완료 + Join 대기 채널 있으면 Join 시도
+    if (bVoiceLoggedIn && !PendingChannelName.IsEmpty() && VoiceUser)
+    {
+        VoiceUser->JoinChannel(
+            PendingChannelName,
+            PendingChannelCreds,
+            EVoiceChatChannelType::NonPositional,
+            FOnVoiceChatChannelJoinCompleteDelegate::CreateUObject(this, &ThisClass::OnVoiceJoinChannelComplete)
+        );
+    }
 }
 
-void UVoiceLobbySubsystem::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
+void UVoiceLobbySubsystem::OnVoiceConnectComplete(const FVoiceChatResult& Result)
 {
-	IOnlineSessionPtr Session = GetSessionInterface();
-	if (!Session.IsValid()) return;
+    bVoiceConnected = Result.IsSuccess();
+    UE_LOG(LogTemp, Warning, TEXT("[Voice] ConnectComplete success=%d"),
+        bVoiceConnected ? 1 : 0);
 
-	Session->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteHandle);
-	UE_LOG(LogTemp, Warning, TEXT("[VoiceLobby] DestroySession(%s) = %d"), *SessionName.ToString(), bWasSuccessful);
+    TryProcessPending();
+}
+
+void UVoiceLobbySubsystem::EnsureVoiceLoggedIn(const FString& PlayerName, const FString& TokenOrCredentials)
+{
+    EnsureVoiceReady();
+    if (!bVoiceReady || !VoiceUser) return;
+    if (bVoiceLoggedIn) return;
+
+    EnsureVoiceConnected();
+
+    FString FinalName = PlayerName;
+    if (FinalName.IsEmpty())
+    {
+        FinalName = GetDefaultPlayerNamePUID();
+        UE_LOG(LogTemp, Warning, TEXT("[Voice] PlayerName(PUID)='%s'"), *FinalName);
+    }
+    if (FinalName.IsEmpty())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Voice] Login deferred: PUID empty (EOS login not ready)"));
+        return;
+    }
+
+    FString FinalCreds = TokenOrCredentials;
+    if (FinalCreds.IsEmpty())
+    {
+        FinalCreds = GetEOSAuthToken(0);
+        UE_LOG(LogTemp, Warning, TEXT("[Voice] AuthTokenLen=%d"), FinalCreds.Len());
+    }
+
+    if (FinalCreds.IsEmpty())
+    {
+        UE_LOG(LogTemp, Error, TEXT("[Voice] Login deferred: AuthToken empty (EOS Identity not logged in?)"));
+        return;
+    }
+
+    PendingLoginPlayerName = FinalName;
+    PendingLoginCredentials = FinalCreds;   //  빈값 금지
+    bLoginRequested = true;
+
+    TryProcessPending();
+}
+
+void UVoiceLobbySubsystem::JoinVoiceChannel(const FString& ChannelName, const FString& ChannelCredentialsJson)
+{
+    EnsureVoiceConnected();
+    EnsureVoiceLoggedIn(TEXT(""), TEXT(""));
+
+    FString CleanCreds;
+    if (!RebuildVoiceCredsJson(ChannelCredentialsJson, CleanCreds))
+    {
+        UE_LOG(LogTemp, Error, TEXT("[VoiceToken] RebuildVoiceCredsJson FAILED"));
+        return;
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("[VoiceToken] CleanCreds len=%d head=%s"),
+        CleanCreds.Len(), *CleanCreds.Left(200));
+
+    {
+        TSharedPtr<FJsonObject> Obj;
+        const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(CleanCreds);
+        if (FJsonSerializer::Deserialize(Reader, Obj) && Obj.IsValid())
+        {
+            FString BaseUrl, Tok, Override;
+            Obj->TryGetStringField(TEXT("ClientBaseUrl"), BaseUrl);
+            Obj->TryGetStringField(TEXT("ParticipantToken"), Tok);
+            Obj->TryGetStringField(TEXT("OverrideUserId"), Override);
+
+            UE_LOG(LogTemp, Warning, TEXT("[Diag] BaseUrl=%s"), *BaseUrl);
+            UE_LOG(LogTemp, Warning, TEXT("[Diag] TokenLen=%d"), Tok.Len());
+            UE_LOG(LogTemp, Warning, TEXT("[Diag] OverrideUserId=%s"), *Override);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("[Diag] CleanCreds JSON parse FAILED"));
+        }
+    }
+
+    if (!VoiceUser || !bVoiceConnected || !bVoiceLoggedIn)
+    {
+        PendingChannelName = ChannelName;
+        PendingChannelCreds = CleanCreds;
+        return;
+    }
+
+    VoiceUser->JoinChannel(
+        ChannelName,
+        CleanCreds,
+        EVoiceChatChannelType::NonPositional,
+        FOnVoiceChatChannelJoinCompleteDelegate::CreateUObject(this, &ThisClass::OnVoiceJoinChannelComplete)
+    );
+}
+
+void UVoiceLobbySubsystem::LeaveVoiceChannel(const FString& ChannelName)
+{
+    if (!VoiceUser) return;
+
+    VoiceUser->LeaveChannel(
+        ChannelName,
+        FOnVoiceChatChannelLeaveCompleteDelegate::CreateUObject(this, &ThisClass::OnVoiceLeaveChannelComplete)
+    );
+}
+
+void UVoiceLobbySubsystem::OnVoiceLoginComplete(const FString& PlayerName, const FVoiceChatResult& Result)
+{
+    bVoiceLoggedIn = Result.IsSuccess();
+
+    // === 추가: OSS 쪽 UniqueId 확인 ===
+    IOnlineSubsystem* OSS = IOnlineSubsystem::Get(TEXT("EOS"));
+    IOnlineIdentityPtr Id = OSS ? OSS->GetIdentityInterface() : nullptr;
+
+    FString OSSUnique = TEXT("NONE");
+    if (Id.IsValid())
+    {
+        TSharedPtr<const FUniqueNetId> NetId = Id->GetUniquePlayerId(0);
+        if (NetId.IsValid())
+        {
+            OSSUnique = NetId->ToString();
+        }
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("[Diag] VoiceLogin user(PlayerName)=%s success=%d OSSUnique=%s"),
+        *PlayerName, Result.IsSuccess() ? 1 : 0, *OSSUnique);
+
+    // 기존 로그도 유지하고 싶으면 같이 둬도 됨
+    UE_LOG(LogTemp, Warning, TEXT("[Voice] LoginComplete user=%s success=%d"),
+        *PlayerName, bVoiceLoggedIn ? 1 : 0);
+
+    TryProcessPending();
+}
+
+void UVoiceLobbySubsystem::OnVoiceJoinChannelComplete(const FString& ChannelName, const FVoiceChatResult& Result)
+{
+    UE_LOG(LogTemp, Warning, TEXT("[Voice] JoinChannelComplete ch=%s success=%d"),
+        *ChannelName, Result.IsSuccess() ? 1 : 0);
+}
+
+void UVoiceLobbySubsystem::OnVoiceLeaveChannelComplete(const FString& ChannelName, const FVoiceChatResult& Result)
+{
+    UE_LOG(LogTemp, Warning, TEXT("[Voice] LeaveChannelComplete ch=%s success=%d"),
+        *ChannelName, Result.IsSuccess() ? 1 : 0);
+}
+
+static FString GetEOSProductUserIdString(int32 LocalUserNum = 0)
+{
+    IOnlineSubsystem* OSS = IOnlineSubsystem::Get(TEXT("EOS"));
+    IOnlineIdentityPtr Identity = OSS ? OSS->GetIdentityInterface() : nullptr;
+
+    TSharedPtr<const FUniqueNetId> NetId = Identity.IsValid() ? Identity->GetUniquePlayerId(LocalUserNum) : nullptr;
+    FString IdStr = NetId.IsValid() ? NetId->ToString() : TEXT("");
+
+    // EOSPlus면 "EpicAccountId|ProductUserId" 형태일 수 있으니 뒤쪽만 사용
+    FString ProductUserIdStr = IdStr;
+    IdStr.Split(TEXT("|"), nullptr, &ProductUserIdStr);
+
+    return ProductUserIdStr;
 }

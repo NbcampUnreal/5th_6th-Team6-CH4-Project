@@ -60,4 +60,19 @@ void ALobbyPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 
 	DOREPLIFETIME(ALobbyPlayerState, bReady);
 	DOREPLIFETIME(ALobbyPlayerState, bIsLeader);
+	DOREPLIFETIME(ALobbyPlayerState, VoiceRoomId); //  Ãß°¡
+}
+
+void ALobbyPlayerState::SetVoiceRoomId(const FString& InRoomId)
+{
+	if (!HasAuthority()) return;
+
+	VoiceRoomId = InRoomId;
+	ForceNetUpdate();
+}
+
+void ALobbyPlayerState::OnRep_VoiceRoomId()
+{
+	UE_LOG(LogTemp, Warning, TEXT("[OnRep_VoiceRoomId] %s Room=%s"), *GetName(), *VoiceRoomId);
+	OnVoiceRoomIdChanged.Broadcast(this, VoiceRoomId);
 }

@@ -1,13 +1,14 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
-#include "Interfaces/OnlineSessionInterface.h"
-#include "OnlineSessionSettings.h"
+#include "VoiceChat.h"
 #include "VoiceLobbySubsystem.generated.h"
 
+class IVoiceChat;
+class IVoiceChatUser;
 
 UCLASS()
 class TEAM6_MULTIGAME_API UVoiceLobbySubsystem : public UGameInstanceSubsystem
@@ -15,48 +16,51 @@ class TEAM6_MULTIGAME_API UVoiceLobbySubsystem : public UGameInstanceSubsystem
 	GENERATED_BODY()
 	
 public:
-	// 보이스 로비 생성 or 참가
-	void CreateOrJoinVoiceLobby(int32 MaxPlayers = 4);
+    virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+    virtual void Deinitialize() override;
 
-	//  리더만 호출: 바로 Create만 수행
-	void CreateVoiceLobby(int32 MaxPlayers = 4);
+    UFUNCTION(BlueprintCallable, Category = "Voice")
+    void EnsureVoiceReady();
 
-	//  리더 아닌 사람만 호출: Find → 있으면 Join / 없으면 그냥 리턴(절대 Create 안 함)
-	void FindAndJoinVoiceLobby();
+    UFUNCTION(BlueprintCallable, Category = "Voice")
+    void EnsureVoiceConnected(); // Initialize + Connect + CreateUser
 
-	//  LobbyPC에서 체크용
-	bool HasVoiceLobbySession() const;
+    UFUNCTION(BlueprintCallable, Category = "Voice")
+    void EnsureVoiceLoggedIn(const FString& PlayerName, const FString& TokenOrCredentials);
 
-	// 종료 시 정리(선택)
-	void LeaveVoiceLobby();
+    UFUNCTION(BlueprintCallable, Category = "Voice")
+    bool JoinVoiceRoom(const FString& InRoomId, const FString& InTokenOrCredentialsJson);
 
-private:
-	static const FName VOICE_SESSION_NAME;
+    UFUNCTION(BlueprintCallable, Category = "Voice")
+    void JoinVoiceChannel(const FString& ChannelName, const FString& ChannelCredentialsJson);
 
-	TSharedPtr<FOnlineSessionSearch> SessionSearch;
-
-	// delegates
-	FDelegateHandle OnCreateSessionCompleteHandle;
-	FDelegateHandle OnFindSessionsCompleteHandle;
-	FDelegateHandle OnJoinSessionCompleteHandle;
-	FDelegateHandle OnDestroySessionCompleteHandle;
-
-	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
-	void OnFindSessionsComplete(bool bWasSuccessful);
-	void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
-	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
-
-	IOnlineSessionPtr GetSessionInterface() const;
+    UFUNCTION(BlueprintCallable, Category = "Voice")
+    void LeaveVoiceChannel(const FString& ChannelName);
 
 private:
-	bool bFindInProgress = false;
 
-	int32 PendingMaxPlayers = 4;
+    void OnVoiceConnectComplete(const FVoiceChatResult& Result);
+    void OnVoiceLoginComplete(const FString& PlayerName, const FVoiceChatResult& Result);
+    void OnVoiceJoinChannelComplete(const FString& ChannelName, const FVoiceChatResult& Result);
+    void OnVoiceLeaveChannelComplete(const FString& ChannelName, const FVoiceChatResult& Result);
 
-	// Find 결과가 없을 때 Create할지 여부 (CreateOrJoin만 true)
-	bool bCreateIfNotFound = false;
+    FString GetDefaultPlayerNamePUID() const;
+    void TryProcessPending(); // Connect/Login 완료 시점에 Pending 처리
 
 private:
-	void StartFind(bool bInCreateIfNotFound);
-	void StartCreate();
+    IVoiceChat* VoiceChat = nullptr;
+    IVoiceChatUser* VoiceUser = nullptr;
+
+    bool bVoiceReady = false;
+    bool bVoiceConnected = false;
+    bool bVoiceLoggedIn = false;
+
+    bool bConnectRequested = false;
+    bool bLoginRequested = false;
+
+    FString PendingLoginPlayerName;
+    FString PendingLoginCredentials;
+
+    FString PendingChannelName;
+    FString PendingChannelCreds;
 };

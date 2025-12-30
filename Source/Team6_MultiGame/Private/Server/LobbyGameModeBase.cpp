@@ -79,6 +79,8 @@ void ALobbyGameModeBase::PostLogin(APlayerController* NewPlayer)
 	if (ALobbyPlayerState* PS = NewPlayer ? NewPlayer->GetPlayerState<ALobbyPlayerState>() : nullptr)
 	{
 		PS->SetReady(false);
+        EnsureVoiceRoomId();
+        PS->SetVoiceRoomId(VoiceRoomId); //  클라로 복제됨
 	}
 
     // 추가: 리더 지정
@@ -146,4 +148,16 @@ void ALobbyGameModeBase::StartGame()
 
 	const bool bOk = GetWorld()->ServerTravel(TravelURL);
 	UE_LOG(LogTemp, Warning, TEXT("[LobbyGM] ServerTravel returned %d"), bOk);
+}
+
+void ALobbyGameModeBase::EnsureVoiceRoomId()
+{
+    if (!HasAuthority()) return;
+
+    if (VoiceRoomId.IsEmpty())
+    {
+        // 매치마다 고유 RoomId (원하면 Prefix로 프로젝트명/맵명 붙여도 됨)
+        VoiceRoomId = FString::Printf(TEXT("TEAM6_%s"), *FGuid::NewGuid().ToString(EGuidFormats::Digits));
+        UE_LOG(LogTemp, Warning, TEXT("[LobbyGM] VoiceRoomId created: %s"), *VoiceRoomId);
+    }
 }

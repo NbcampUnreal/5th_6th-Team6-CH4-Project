@@ -106,12 +106,28 @@ void ULoginSubsystem::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, c
 
 	bLoggedIn = bWasSuccessful;
 
-	if (bWasSuccessful)
+	if (!bWasSuccessful)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[LoginSubsystem] Login SUCCESS. UserId=%s"), *UserId.ToString());
+		UE_LOG(LogTemp, Error, TEXT("[LoginSubsystem] Login FAILED: %s"), *Error);
+		return;
+	}
+
+	// UserId 문자열: "EpicAccountId|ProductUserId" 형태(너 로그 그대로) :contentReference[oaicite:3]{index=3}
+	const FString IdStr = UserId.ToString();
+	FString Left, Right;
+	if (IdStr.Split(TEXT("|"), &Left, &Right))
+	{
+		CachedEasId = Left;
+		CachedPuid = Right;
 	}
 	else
 	{
-		UE_LOG(LogTemp, Error, TEXT("[LoginSubsystem] Login FAILED: %s"), *Error);
+		CachedPuid = IdStr;
+		CachedEasId.Reset();
 	}
+
+	CachedAuthToken = Identity.IsValid() ? Identity->GetAuthToken(LocalUserNum) : TEXT("");
+
+	UE_LOG(LogTemp, Warning, TEXT("[LoginSubsystem] Login SUCCESS. EAS=%s PUID=%s AuthTokenLen=%d"),
+		*CachedEasId, *CachedPuid, CachedAuthToken.Len());
 }

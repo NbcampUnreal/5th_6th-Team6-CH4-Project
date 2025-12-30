@@ -9,9 +9,15 @@
 class ALobbyPlayerState;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
-    FOnReadyChanged,
+	FOnVoiceRoomIdChanged,
     ALobbyPlayerState*, PlayerState,
-    bool, bReady
+	const FString&, VoiceRoomId
+);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
+	FOnReadyChanged,
+	ALobbyPlayerState*, PlayerState,
+	bool, bReady
 );
 
 UCLASS()
@@ -28,6 +34,12 @@ public:
 	// 첫 접속자(리더)만 true: Voice Lobby 생성 책임
 	UPROPERTY(ReplicatedUsing = OnRep_IsLeader, BlueprintReadOnly, Category = "Lobby")
 	bool bIsLeader = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_VoiceRoomId, BlueprintReadOnly, Category = "Voice")
+	FString VoiceRoomId;
+
+	UPROPERTY(BlueprintAssignable, Category = "Voice")
+	FOnVoiceRoomIdChanged OnVoiceRoomIdChanged;
 
 	UPROPERTY(BlueprintAssignable, Category = "Lobby")
 	FOnReadyChanged OnReadyChanged;
@@ -48,6 +60,14 @@ protected:
 	UFUNCTION()
 	void OnRep_IsLeader();
 
+	UFUNCTION()
+	void OnRep_VoiceRoomId();
+
 public:
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	const FString& GetVoiceRoomId() const { return VoiceRoomId; }
+
+	// 서버에서만 세팅
+	void SetVoiceRoomId(const FString& InRoomId);
 };

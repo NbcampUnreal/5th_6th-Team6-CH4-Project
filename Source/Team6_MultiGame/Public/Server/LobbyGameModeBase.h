@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "Misc/Guid.h"
 #include "LobbyGameModeBase.generated.h"
 
 
@@ -16,7 +17,7 @@ public:
 	ALobbyGameModeBase();
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lobby")
-	int32 MinPlayersToStart = 1;
+	int32 MinPlayersToStart = 2;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lobby")
 	FString MainMapPath = TEXT("/Game/Maps/MainMap");
@@ -24,6 +25,8 @@ public:
 	bool AreAllPlayersReady() const;
 
 	void TryStartGame();
+
+	void EnsureVoiceRoomId();
 
 protected:
 	bool bGameStarting = false;
@@ -36,4 +39,7 @@ protected:
 
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void Logout(AController* Exiting) override;
+
+private:
+	FString VoiceRoomId;
 };

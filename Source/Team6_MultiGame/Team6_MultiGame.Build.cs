@@ -24,7 +24,10 @@ public class Team6_MultiGame : ModuleRules
             "OnlineSubsystemEOS",
             "OnlineSubsystemUtils",
 
-            "VoiceChat"
+            "VoiceChat",
+            "Http",
+            "Json",
+            "JsonUtilities"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[] { });
