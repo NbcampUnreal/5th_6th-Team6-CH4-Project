@@ -150,6 +150,17 @@ void AMainPlayerController::SetupInputComponent()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Sprint is NULL"));
 	}
+
+	// ===== Dash =====
+	if (IA_Dash)
+	{
+		EIC->BindAction(IA_Dash, ETriggerEvent::Started, this, &AMainPlayerController::OnDashStarted);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Dash is NULL"));
+	}
+
 }
 
 /* ===================== Role ===================== */
@@ -387,7 +398,14 @@ void AMainPlayerController::OnSprintCompleted(const FInputActionValue& Value)
 
 }
 
+void AMainPlayerController::OnDashStarted(const FInputActionValue& Value)
+{
+	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+		return;
 
+	// 클라 -> 서버로 대쉬 요청
+	Server_SendDash();
+}
 
 /* ===================== Server RPC ===================== */
 
@@ -434,6 +452,16 @@ void AMainPlayerController::Server_SendSprint_Implementation(bool bSprinting)
 
 	TargetSquirrel->SetSprinting_ServerAuth(bSprinting);
 }
+
+void AMainPlayerController::Server_SendDash_Implementation()
+{
+	// 서버에서도 역할 체크
+	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+		return;
+
+	TargetSquirrel->RequestDash_ServerAuth(); // 아래 2)에서 구현
+}
+
 /* ===================== Replication ===================== */
 
 void AMainPlayerController::GetLifetimeReplicatedProps(

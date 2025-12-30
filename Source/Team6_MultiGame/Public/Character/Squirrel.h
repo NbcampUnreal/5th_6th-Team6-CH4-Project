@@ -33,11 +33,35 @@ public:
 	// 서버 권위 스프린트
 	void SetSprinting_ServerAuth(bool bNewSprinting);
 
+
 	//Sprinting
 	UPROPERTY(ReplicatedUsing = OnRep_IsJog, BlueprintReadOnly, Category = "Move")
 	bool bIsJog = false;
 
+	
 
+	UFUNCTION()
+	void RequestDash_ServerAuth();
+	// ===== Dash Replication =====
+	UPROPERTY(ReplicatedUsing = OnRep_IsDash, BlueprintReadOnly, Category = "Move")
+	bool bIsDash = false;
+
+	UFUNCTION()
+	void OnRep_IsDash();
+
+	// 서버용 쿨다운/타이머
+	float NextDashAllowedTime = 0.f;
+
+	FTimerHandle DashEndTimerHandle;
+
+	// 대쉬 “활성 유지 시간”(애님 길이에 맞춰 조절)
+	UPROPERTY(EditDefaultsOnly, Category = "Dash")
+	float DashActiveTime = 0.8f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Dash")
+	float DashCooldownTime = 5.f;
+
+	void EndDash_ServerAuth();
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
