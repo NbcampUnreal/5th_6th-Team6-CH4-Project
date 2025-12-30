@@ -34,7 +34,7 @@ ASquirrel::ASquirrel()
     GetCharacterMovement()->RotationRate = FRotator(0.f, 720.f, 0.f);
 
     // ★ 혹시 0으로 초기화돼 있으면 이동 절대 안 됨
-    GetCharacterMovement()->MaxWalkSpeed = 600.f;
+    GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
     /* ===== Camera Setup ===== */
 
     SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
@@ -106,27 +106,47 @@ void ASquirrel::ApplyLook_ServerAuth(const FVector2D& LookInput) // [ADD]
 }
 
 
-// Called when the game starts or when spawned
-void ASquirrel::BeginPlay()
-{
-    Super::BeginPlay();
-}
 
-// Called every frame
-void ASquirrel::Tick(float DeltaTime)
+void ASquirrel::Jump_ServerAuth()
 {
 
-    Super::Tick(DeltaTime);
+    if (!HasAuthority()) return;
 
-   
+    Jump();
+
 }
 
-// Called to bind functionality to input
-void ASquirrel::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void ASquirrel::StopJump_ServerAuth()
 {
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
+    if (!HasAuthority()) return;
 
+    StopJumping();
 }
+
+
+
+void ASquirrel::ApplySprintSpeed()
+{
+    if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+    {
+        MoveComp->MaxWalkSpeed = bIsJog ? SprintSpeed : WalkSpeed;
+    }
+}
+
+void ASquirrel::SetSprinting_ServerAuth(bool bNewSprinting)
+{
+    if (!HasAuthority()) return;
+
+    bIsJog = bNewSprinting;
+    ApplySprintSpeed();
+    ForceNetUpdate();
+}
+
+void ASquirrel::OnRep_IsJog()
+{
+    ApplySprintSpeed();
+}
+
 
 
 void ASquirrel::Move(const FVector2D& MoveInput)
@@ -176,6 +196,7 @@ void ASquirrel::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
     DOREPLIFETIME(ASquirrel, RepViewRot);
     DOREPLIFETIME(ASquirrel, HP);   //HP 상태 
     DOREPLIFETIME(ASquirrel, CurrentGun);  //현재 무기 상태 알림
+    DOREPLIFETIME(ASquirrel, bIsJog);
 }
 
 
@@ -276,3 +297,26 @@ void ASquirrel::ReceiveHeal_Implementation(float HealAmount)
     // 여기서 나주에 HUD 업데이트용 멀티캐스트 RPC, 또는 HP를 바인딩한 UMG 등이 있으면 자동으로 반영시킬 수 있음
 }
 
+// Called when the game starts or when spawned
+void ASquirrel::BeginPlay()
+{
+    Super::BeginPlay();
+
+
+}
+
+// Called every frame
+void ASquirrel::Tick(float DeltaTime)
+{
+
+    Super::Tick(DeltaTime);
+
+
+}
+
+// Called to bind functionality to input
+void ASquirrel::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+    Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+}

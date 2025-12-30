@@ -129,6 +129,27 @@ void AMainPlayerController::SetupInputComponent()
 		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Fire is NULL"));
 	}
 	
+	// ===== Jump =====
+	if (IA_Jump)
+	{
+		EIC->BindAction(IA_Jump, ETriggerEvent::Started, this, &AMainPlayerController::OnJumpStarted);
+		EIC->BindAction(IA_Jump, ETriggerEvent::Completed, this, &AMainPlayerController::OnJumpCompleted);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Jump is NULL"));
+	}
+
+	// ===== Sprint (Shift) =====
+	if (IA_Sprint)
+	{
+		EIC->BindAction(IA_Sprint, ETriggerEvent::Started, this, &AMainPlayerController::OnSprintStarted);
+		EIC->BindAction(IA_Sprint, ETriggerEvent::Completed, this, &AMainPlayerController::OnSprintCompleted);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Sprint is NULL"));
+	}
 }
 
 /* ===================== Role ===================== */
@@ -328,6 +349,52 @@ void AMainPlayerController::OnFireStarted(const FInputActionValue& Value)
 	Server_SendFire();
 }
 
+void AMainPlayerController::OnJumpStarted(const FInputActionValue& Value)
+{
+	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+		return;
+
+	Server_SendJump(true);
+
+	if (KeyGuideWidget)
+		KeyGuideWidget->SetKeyPressed("Space", true);
+}
+
+void AMainPlayerController::OnJumpCompleted(const FInputActionValue& Value)
+{
+	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+		return;
+
+	Server_SendJump(false);
+
+	if (KeyGuideWidget)
+		KeyGuideWidget->SetKeyPressed("Space", false);
+}
+
+void AMainPlayerController::OnSprintStarted(const FInputActionValue& Value)
+{
+	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+		return;
+
+	Server_SendSprint(true);
+
+	if (KeyGuideWidget)
+		KeyGuideWidget->SetKeyPressed("Shift", true);
+}
+
+void AMainPlayerController::OnSprintCompleted(const FInputActionValue& Value)
+{
+	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+		return;
+
+	Server_SendSprint(false);
+
+	if (KeyGuideWidget)
+		KeyGuideWidget->SetKeyPressed("Shift", false);
+}
+
+
+
 /* ===================== Server RPC ===================== */
 
 void AMainPlayerController::Server_SendMove_Implementation(const FVector2D& MoveInput)
@@ -359,6 +426,20 @@ void AMainPlayerController::Server_SendFire_Implementation()
 	}
 }
 
+void AMainPlayerController::Server_SendJump_Implementation(bool bPressed)
+{
+	if (!TargetSquirrel) return;
+
+	if (bPressed) TargetSquirrel->Jump_ServerAuth();
+	else          TargetSquirrel->StopJump_ServerAuth();
+}
+
+void AMainPlayerController::Server_SendSprint_Implementation(bool bSprinting)
+{
+	if (!TargetSquirrel) return;
+
+	TargetSquirrel->SetSprinting_ServerAuth(bSprinting);
+}
 /* ===================== Replication ===================== */
 
 void AMainPlayerController::GetLifetimeReplicatedProps(
