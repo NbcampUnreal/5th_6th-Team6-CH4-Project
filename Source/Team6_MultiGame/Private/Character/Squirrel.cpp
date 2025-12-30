@@ -232,10 +232,12 @@ void ASquirrel::ServerEquipGun_Implementation(AALCGunBase* NewGun)
         return;
     }
 
-    // [FIX] 기존 총이 있으면 분리만(드랍 로직은 추후 확장)
+    //기존 총 없애기
     if (CurrentGun)
     {
-        CurrentGun->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+        CurrentGun->Destroy();
+        CurrentGun = nullptr;
+        //CurrentGun->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
         // CurrentGun->SetOwner(nullptr);
     }
 

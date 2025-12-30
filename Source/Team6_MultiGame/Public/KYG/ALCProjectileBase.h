@@ -6,6 +6,10 @@
 #include "GameFramework/Actor.h"
 #include "ALCProjectileBase.generated.h"
 
+
+class USphereComponent;
+class UProjectileMovementComponent;
+
 UCLASS()
 class TEAM6_MULTIGAME_API AALCProjectileBase : public AActor
 {
@@ -18,25 +22,33 @@ public:
 	virtual void Init(float InDamage, FVector Direction, float Speed);
 
 protected:
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	class USphereComponent* CollisionComp;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UStaticMeshComponent* MeshComp;
 
 	UPROPERTY(VisibleAnywhere)
 	class UProjectileMovementComponent* MovementComp;
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Category = "Projectile")
 	float Damage = 20.f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Projectile")
 	float MaxRange = 3000.f;
 
+	UPROPERTY(VisibleAnywhere, Category = "Projectile")
+	FVector SpawnLocation;
+
+	virtual void BeginPlay() override;
+
 	UFUNCTION()
 	void OnHit(
-		UPrimitiveComponent* Overlapped,
+		UPrimitiveComponent* OverlappedComp,
 		AActor* OtherActor,
 		UPrimitiveComponent* OtherComp,
 		int32 OtherBodyIndex,
 		bool bFromSweep,
-		const FHitResult& Hit
+		const FHitResult& SweepResult
 	);
 };

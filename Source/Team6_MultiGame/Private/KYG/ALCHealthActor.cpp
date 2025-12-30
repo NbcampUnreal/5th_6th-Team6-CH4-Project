@@ -22,7 +22,7 @@ void AALCHealthActor::ReceiveDamage_Implementation(float DamageAmount, AActor* D
 
 	CurrentHP -= DamageAmount;
 
-	UE_LOG(LogTemp, Warning, TEXT("[%s] HP: %.1f"), *GetName(), DamageAmount, CurrentHP);
+	UE_LOG(LogTemp, Warning, TEXT("[%s] Took %.1f damage, HP: %.1f"), *GetName(), DamageAmount, CurrentHP);
 
 	if (CurrentHP <= 0.f)
 	{
