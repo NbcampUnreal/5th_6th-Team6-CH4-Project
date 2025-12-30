@@ -4,7 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "KYG/ALCProjectileBase.h"
+#include "NiagaraSystem.h"
 #include "ALCProjectileBase_Laser.generated.h"
+
+class UNiagaraComponent;
 
 UCLASS()
 class TEAM6_MULTIGAME_API AALCProjectileBase_Laser : public AALCProjectileBase
@@ -24,4 +27,11 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Laser")
 	bool bWorldStaticBlocksLaser = true;
 
+	// 에디터에서 골라줄 VFX
+	UPROPERTY(EditDefaultsOnly, Category = "VFX")
+	UNiagaraSystem* LaserVFX;
+
+	// 모든 클라에 이펙트만 전파 (데미지는 서버에서 이미 처리)
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastPlayLaserFX(const FVector& Start, const FVector& End);
 };

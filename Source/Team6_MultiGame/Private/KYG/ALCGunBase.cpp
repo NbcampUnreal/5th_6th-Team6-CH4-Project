@@ -7,6 +7,8 @@
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 
+#include "GameFramework/Character.h"
+
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -44,55 +46,81 @@ AALCGunBase::AALCGunBase()
 //	HandleFire();	//서버에서 실제 발사 처리
 //}
 
+void AALCGunBase::GetMuzzleTransform(const FRotator& AimRot, FVector& OutLoc, FRotator& OutRot, bool& bOutUsedSocket) const
+{
+    bOutUsedSocket = false;
+
+    // 기본 폴백: 총 액터 위치 + 조준방향 기준 오프셋
+    OutRot = AimRot;
+    OutLoc = GetActorLocation() + AimRot.RotateVector(MuzzleFallbackOffset);
+
+    if (!GunMesh)
+        return;
+
+    if (!GunMesh->DoesSocketExist(MuzzleSocketName))
+        return;
+
+    // StaticMesh 소켓 월드 위치
+    OutLoc = GunMesh->GetSocketLocation(MuzzleSocketName);
+
+    // 회전은 조준을 쓰는 게 보통 정답(카메라/조준과 일치)
+    // "총구의 로컬 방향"을 정확히 쓰고 싶으면 아래로 바꾸면 됨.
+    // OutRot = GunMesh->GetSocketRotation(MuzzleSocketName);
+
+    bOutUsedSocket = true;
+}
+
 //서버에서만 실행되는 로직 , 스폰 , 쿨타임 , 속도 등 핵심 
 void AALCGunBase::HandleFire(const FRotator& AimRot)
-{	
-
-
-    // ★ 서버에서만 총알 스폰
-    if (!HasAuthority())
-        return;
-
+{
     UWorld* World = GetWorld();
     if (!World || !ProjectileClass)
+    {
+        UE_LOG(LogTemp, Error, TEXT("[Gun] INVALID World or ProjectileClass"));
         return;
+    }
 
     APawn* OwnerPawn = Cast<APawn>(GetOwner());
     if (!OwnerPawn)
+    {
+        UE_LOG(LogTemp, Error, TEXT("[Gun] No OwnerPawn"));
         return;
+    }
 
-    // 쿨타임
-    const float Now = World->GetTimeSeconds();
-    if (Now - LastFireTime < FireCooldown)
-        return;
-    LastFireTime = Now;
-
-    // AimRot 기반 방향
     const FVector ShootDir = AimRot.Vector();
 
-    // 스폰 위치(기존 로직 유지)
     const FVector SpawnLoc =
         OwnerPawn->GetActorLocation()
         + ShootDir * 100.f
-        + FVector(0, 0, 50.f);
+        + FVector(0.f, 0.f, 50.f);
 
-    FActorSpawnParameters SpawnParams;
-    SpawnParams.Owner = OwnerPawn;
-    SpawnParams.Instigator = OwnerPawn;
-    SpawnParams.SpawnCollisionHandlingOverride =
+    FActorSpawnParameters Params;
+    Params.Owner = OwnerPawn;
+    Params.Instigator = OwnerPawn;
+    Params.SpawnCollisionHandlingOverride =
         ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-    AALCProjectileBase* Bullet = World->SpawnActor<AALCProjectileBase>(
+    AALCProjectileBase* Proj = World->SpawnActor<AALCProjectileBase>(
         ProjectileClass,
         SpawnLoc,
         AimRot,
-        SpawnParams
+        Params
     );
 
-    if (Bullet)
+    if (!Proj)
     {
-        Bullet->Init(Damage, ShootDir, BulletSpeed);
+        UE_LOG(LogTemp, Error,
+            TEXT("[Gun] Spawn projectile FAILED. ProjClass=%s Owner=%s"),
+            *GetNameSafe(ProjectileClass),
+            *GetNameSafe(OwnerPawn));
+        return;
     }
+
+    Proj->Init(Damage, ShootDir, BulletSpeed);
+}
+
+
+
    // UWorld* World = GetWorld();
    // if (!World || !ProjectileClass) { return; }
 
@@ -141,4 +169,5 @@ void AALCGunBase::HandleFire(const FRotator& AimRot)
    // {
    //     Bullet->Init(Damage, ShootDir, BulletSpeed);
    // }
-}
+
+
