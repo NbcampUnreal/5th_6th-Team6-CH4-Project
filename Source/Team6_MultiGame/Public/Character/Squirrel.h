@@ -27,6 +27,15 @@ public:
 
 	void Fire_ServerAuth(); // 서버에서만 호출될 발사
 
+	// 서버 권위 점프
+	void Jump_ServerAuth();
+	void StopJump_ServerAuth();
+	// 서버 권위 스프린트
+	void SetSprinting_ServerAuth(bool bNewSprinting);
+
+	//Sprinting
+	UPROPERTY(ReplicatedUsing = OnRep_IsJog, BlueprintReadOnly, Category = "Move")
+	bool bIsJog = false;
 
 
 protected:
@@ -40,9 +49,23 @@ protected:
 	UFUNCTION()
 	void OnRep_CurrentGun(); // [FIX]
 
+	// 속도(걷기 300 / 뛰기 600)
+	UPROPERTY(EditDefaultsOnly, Category = "Move")
+	float WalkSpeed = 300.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Move")
+	float SprintSpeed = 600.f;
+
+
 	// [FIX] Attach는 단일 함수로
 	void AttachCurrentGun();
 
+	
+	UFUNCTION()
+	void OnRep_IsJog();
+
+	void ApplySprintSpeed();
+	
 
 	//======== HP구현 ==========
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Status")

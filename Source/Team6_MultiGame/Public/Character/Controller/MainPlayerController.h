@@ -62,6 +62,12 @@ protected:
 	void OnMoveTriggered(const FInputActionValue& Value);
 	void OnLookTriggered(const FInputActionValue& Value);
 	void OnFireStarted(const FInputActionValue& Value);
+	// ===== Handlers =====
+	void OnJumpStarted(const FInputActionValue& Value);
+	void OnJumpCompleted(const FInputActionValue& Value);
+
+	void OnSprintStarted(const FInputActionValue& Value);
+	void OnSprintCompleted(const FInputActionValue& Value);
 	/* ===================== Server RPC ===================== */
 	UFUNCTION(Server, Reliable)
 	void Server_SendMove(const FVector2D& MoveInput);
@@ -71,6 +77,12 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void Server_SendFire();
+
+	UFUNCTION(Server, Reliable)
+	void Server_SendJump(bool bPressed);
+
+	UFUNCTION(Server, Reliable)
+	void Server_SendSprint(bool bSprinting);
 
 public:
 	/* ===================== Input Assets ===================== */
@@ -93,6 +105,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	UInputAction* IA_Fire;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UInputAction* IA_Jump = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UInputAction* IA_Sprint = nullptr;
 
 protected:
 	/* ===================== Replication ===================== */
