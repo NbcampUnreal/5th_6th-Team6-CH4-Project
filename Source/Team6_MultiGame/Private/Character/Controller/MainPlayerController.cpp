@@ -356,8 +356,6 @@ void AMainPlayerController::OnJumpStarted(const FInputActionValue& Value)
 
 	Server_SendJump(true);
 
-	if (KeyGuideWidget)
-		KeyGuideWidget->SetKeyPressed("Space", true);
 }
 
 void AMainPlayerController::OnJumpCompleted(const FInputActionValue& Value)
@@ -367,8 +365,6 @@ void AMainPlayerController::OnJumpCompleted(const FInputActionValue& Value)
 
 	Server_SendJump(false);
 
-	if (KeyGuideWidget)
-		KeyGuideWidget->SetKeyPressed("Space", false);
 }
 
 void AMainPlayerController::OnSprintStarted(const FInputActionValue& Value)
@@ -378,8 +374,7 @@ void AMainPlayerController::OnSprintStarted(const FInputActionValue& Value)
 
 	Server_SendSprint(true);
 
-	if (KeyGuideWidget)
-		KeyGuideWidget->SetKeyPressed("Shift", true);
+	
 }
 
 void AMainPlayerController::OnSprintCompleted(const FInputActionValue& Value)
@@ -389,8 +384,6 @@ void AMainPlayerController::OnSprintCompleted(const FInputActionValue& Value)
 
 	Server_SendSprint(false);
 
-	if (KeyGuideWidget)
-		KeyGuideWidget->SetKeyPressed("Shift", false);
 }
 
 
