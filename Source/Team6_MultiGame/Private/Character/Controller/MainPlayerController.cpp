@@ -2,14 +2,12 @@
 
 
 #include "Character/Controller/MainPlayerController.h"
-
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "Net/UnrealNetwork.h"
-
 #include "Character/Squirrel.h"
+#include "UI/UIHUD.h"
 
-#include "UI/UW_KeyGuide.h"
 
 
 AMainPlayerController::AMainPlayerController()
@@ -21,7 +19,7 @@ void AMainPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// ★ 중요: 입력 매핑은 로컬 컨트롤러에서만
+	// 중요: 입력 매핑은 로컬 컨트롤러에서만
 	if (!IsLocalController())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[BeginPlay] Not local controller, skipping input setup."));
@@ -61,13 +59,11 @@ void AMainPlayerController::BeginPlay()
 		}
 	}
 
-	if (IsLocalController() && KeyGuideClass)
+
+	UIHUD = CreateWidget<UUIHUD>(this, UIHUDClass);
+	if (UIHUD)
 	{
-		KeyGuideWidget = CreateWidget<UUW_KeyGuide>(this, KeyGuideClass);
-		if (KeyGuideWidget)
-		{
-			KeyGuideWidget->AddToViewport();
-		}
+		UIHUD->AddToViewport();
 	}
 
 }
@@ -150,6 +146,7 @@ void AMainPlayerController::SetRole(EPlayerRole NewRole)
 	
 	
 }
+
 void AMainPlayerController::OnRep_PlayerRole() 
 {
 	if (IsLocalController())
@@ -159,12 +156,14 @@ void AMainPlayerController::OnRep_PlayerRole()
 			*GetName(),
 			PlayerRole == EPlayerRole::Camera ? TEXT("Camera") : TEXT("Move"));
 	}
+	
 	ApplyPlayerRole();
 
-	if (KeyGuideWidget)
+	if (UIHUD)
 	{
-		KeyGuideWidget->ResetAllKeys();
+		UIHUD->ResetAllKeys();
 	}
+
 }
 
 void AMainPlayerController::SetTargetSquirrel(ASquirrel* InSquirrel)
@@ -211,71 +210,89 @@ void AMainPlayerController::ApplyPlayerRole()
 		PlayerRole == EPlayerRole::Camera ? TEXT("Camera") : TEXT("Move"));
 }
 
-
 /* ===================== Input ===================== */
 
 void AMainPlayerController::OnMoveTriggered(const FInputActionValue& Value)
 {
 	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
-	{
 		return;
-	}
 
 	const FVector2D Move = Value.Get<FVector2D>();
-
-	if (Move.IsNearlyZero(0.01f))
+	if (Move.IsNearlyZero())
 		return;
 
-	
 	Server_SendMove(Move);
 
-	
-	if (KeyGuideWidget)
+	if (UIHUD)
 	{
-		KeyGuideWidget->SetKeyPressed("W", Move.X > 0.f);
-		KeyGuideWidget->SetKeyPressed("S", Move.X < 0.f);
-		KeyGuideWidget->SetKeyPressed("D", Move.Y > 0.f);
-		KeyGuideWidget->SetKeyPressed("A", Move.Y < 0.f);
+		UIHUD->SetKeyPressed("W", Move.Y > 0.f);
+		UIHUD->SetKeyPressed("S", Move.Y < 0.f);
+		UIHUD->SetKeyPressed("D", Move.X > 0.f);
+		UIHUD->SetKeyPressed("A", Move.X < 0.f);
 	}
 }
 
-void AMainPlayerController::OnMoveCompleted(const FInputActionValue& Value)
+void AMainPlayerController::OnMoveCompleted(const FInputActionValue&)
 {
-	if (KeyGuideWidget)
+	if (UIHUD)
 	{
-		KeyGuideWidget->ResetAllKeys();
+		UIHUD->ResetAllKeys();
 	}
 }
 
-void AMainPlayerController::OnMouseLTriggered(const FInputActionValue& Value)
+void AMainPlayerController::OnMouseLTriggered(const FInputActionValue&)
 {
-	if (KeyGuideWidget)
+	if (UIHUD)
 	{
-		KeyGuideWidget->SetKeyPressed("MouseL", true);
+		UIHUD->SetKeyPressed("MouseL", true);
 	}
 }
 
-void AMainPlayerController::OnMouseLCompleted(const FInputActionValue& Value)
+void AMainPlayerController::OnMouseLCompleted(const FInputActionValue&)
 {
-	if (KeyGuideWidget)
+	if (UIHUD)
 	{
-		KeyGuideWidget->SetKeyPressed("MouseL", false);
+		UIHUD->SetKeyPressed("MouseL", false);
 	}
 }
 
-void AMainPlayerController::OnMouseRTriggered(const FInputActionValue& Value)
+void AMainPlayerController::OnMouseRTriggered(const FInputActionValue&)
 {
-	if (KeyGuideWidget)
+	if (UIHUD)
 	{
-		KeyGuideWidget->SetKeyPressed("MouseR", true);
+		UIHUD->SetKeyPressed("MouseR", true);
 	}
 }
 
-void AMainPlayerController::OnMouseRCompleted(const FInputActionValue& Value)
+void AMainPlayerController::OnMouseRCompleted(const FInputActionValue&)
 {
-	if (KeyGuideWidget)
+	if (UIHUD)
 	{
-		KeyGuideWidget->SetKeyPressed("MouseR", false);
+		UIHUD->SetKeyPressed("MouseR", false);
+	}
+}
+
+void AMainPlayerController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+
+	if (!IsLocalController())
+		return;
+
+	if (!UIHUD)
+		return;
+
+}
+
+void AMainPlayerController::UpdateHUD_HP(float CurHP, float MaxHP)
+{
+	// 로컬 컨트롤러만 UI 갱신
+	if (!IsLocalController())
+		return;
+
+	if (UIHUD)
+	{
+		UIHUD->UpdateHP(CurHP, MaxHP);
 	}
 }
 
@@ -328,7 +345,6 @@ void AMainPlayerController::Server_SendLook_Implementation(const FVector2D& Look
 		TargetSquirrel->ApplyLook_ServerAuth(LookInput); // [ADD]
 	}
 }
-
 
 void AMainPlayerController::Server_SendFire_Implementation()
 {

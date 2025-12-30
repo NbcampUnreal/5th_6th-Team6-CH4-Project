@@ -80,9 +80,7 @@ void ASquirrel::ApplyLook_ServerAuth(const FVector2D& LookInput) // [ADD]
 // Called when the game starts or when spawned
 void ASquirrel::BeginPlay()
 {
-	Super::BeginPlay();
-
-
+    Super::BeginPlay();
 }
 
 // Called every frame
