@@ -1,12 +1,13 @@
 #include "AI/BaseAIController.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BlackboardComponent.h"
+#include "BehaviorTree/BehaviorTreeComponent.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
+#include "AI/BaseAICharacter.h" 
 
 ABaseAIController::ABaseAIController()
 {
-    // 멀티플레이어 설정: 컨트롤러 상태를 클라이언트에 복제할 수 있도록 설정
     bReplicates = true;
 
     AIPerception = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("AIPerception"));
@@ -18,7 +19,6 @@ ABaseAIController::ABaseAIController()
         SightConfig->LoseSightRadius = 1200.0f;
         SightConfig->PeripheralVisionAngleDegrees = 90.0f;
 
-        
         SightConfig->DetectionByAffiliation.bDetectEnemies = true;
         SightConfig->DetectionByAffiliation.bDetectNeutrals = true;
         SightConfig->DetectionByAffiliation.bDetectFriendlies = true;
@@ -32,43 +32,75 @@ void ABaseAIController::OnPossess(APawn* InPawn)
 {
     Super::OnPossess(InPawn);
 
-    // 오직 서버에서만 비헤이비어 트리를 실행
-    if (HasAuthority() && BehaviorTreeAsset)
+    if (HasAuthority())
     {
-        RunBehaviorTree(BehaviorTreeAsset);
-    }
+        if (BehaviorTreeAsset)
+        {
+            RunBehaviorTree(BehaviorTreeAsset);
+        }
 
-    if (AIPerception)
-    {
-        AIPerception->OnTargetPerceptionUpdated.AddDynamic(this, &ABaseAIController::OnTargetDetected);
+        if (AIPerception)
+        {
+            // 중복 바인딩 방지 후 등록
+            AIPerception->OnTargetPerceptionUpdated.RemoveDynamic(this, &ABaseAIController::OnTargetDetected);
+            AIPerception->OnTargetPerceptionUpdated.AddDynamic(this, &ABaseAIController::OnTargetDetected);
+        }
     }
 }
 
 void ABaseAIController::OnTargetDetected(AActor* Actor, FAIStimulus Stimulus)
 {
-    // 서버에서만 블랙보드 값을 수정하도록 제어
     if (!HasAuthority()) return;
 
-    UBlackboardComponent* BlackboardComp = GetBlackboardComponent();
-    if (BlackboardComp)
+    // 조종 중인 캐릭터가 죽었는지 확인
+    ABaseAICharacter* MyCharacter = Cast<ABaseAICharacter>(GetPawn());
+    if (!MyCharacter || MyCharacter->IsDead()) return;
+
+    UBlackboardComponent* BBComp = GetBlackboardComponent();
+    if (!BBComp) return;
+
+    if (Stimulus.WasSuccessfullySensed())
     {
-        if (Stimulus.WasSuccessfullySensed())
+        // 플레이어 태그가 있는 액터만 타겟으로 지정
+        if (Actor && Actor->ActorHasTag(TEXT("Player")))
         {
-            // 플레이어 태그가 있는 대상만 추적 
-            if (Actor && Actor->ActorHasTag(TEXT("Player")))
-            {
-                BlackboardComp->SetValueAsObject(TEXT("TargetActor"), Actor);
-                UE_LOG(LogTemp, Warning, TEXT("[Server] Player Detected by AI!"));
-            }
+            BBComp->SetValueAsObject(TargetActorKeyName, Actor);
+            UE_LOG(LogTemp, Warning, TEXT("[Server] Found Player: %s"), *Actor->GetName());
         }
-        else
+    }
+    else
+    {
+        // 현재 타겟을 놓쳤을 때만 블랙보드 비우기
+        AActor* CurrentTarget = Cast<AActor>(BBComp->GetValueAsObject(TargetActorKeyName));
+        if (CurrentTarget == Actor)
         {
-            // 현재 타겟을 놓쳤을 때만 클리어
-            AActor* CurrentTarget = Cast<AActor>(BlackboardComp->GetValueAsObject(TEXT("TargetActor")));
-            if (CurrentTarget == Actor)
-            {
-                BlackboardComp->ClearValue(TEXT("TargetActor"));
-            }
+            BBComp->ClearValue(TargetActorKeyName);
+            UE_LOG(LogTemp, Display, TEXT("[Server] Lost Target: %s"), *Actor->GetName());
         }
+    }
+}
+
+void ABaseAIController::OnAICharacterDead()
+{
+    if (!HasAuthority()) return;
+
+    // 1. 비헤이비어 트리 정지
+    UBehaviorTreeComponent* BTComp = Cast<UBehaviorTreeComponent>(BrainComponent);
+    if (BTComp)
+    {
+        BTComp->StopTree(EBTStopMode::Safe);
+    }
+
+    // 2. 블랙보드 타겟 정보 삭제
+    UBlackboardComponent* BBComp = GetBlackboardComponent();
+    if (BBComp)
+    {
+        BBComp->ClearValue(TargetActorKeyName);
+    }
+
+    // 3. 인지 시스템 비활성화
+    if (AIPerception)
+    {
+        AIPerception->Deactivate();
     }
 }

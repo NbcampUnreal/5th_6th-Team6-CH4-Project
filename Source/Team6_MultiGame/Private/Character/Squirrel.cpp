@@ -9,13 +9,25 @@
 #include "GameFramework/PlayerController.h"
 #include "Character/Controller/MainPlayerController.h"
 #include "KYG/ALCGunBase.h"
+#include "Components/CapsuleComponent.h"
 
 // Sets default values
 ASquirrel::ASquirrel()
 {
     PrimaryActorTick.bCanEverTick = true;
 
-  
+    bReplicates = true;
+    SetReplicateMovement(true);
+    // ★ 서버에서 클라로 더 자주 보내게
+    NetUpdateFrequency = 100.f;        // 기본보다 크게 (예: 100)
+    MinNetUpdateFrequency = 30.f;      // 최소 보장 (예: 30)
+    NetPriority = 3.f;                // 우선순위 상승
+
+    // 협동 소규모 게임이면 켜도 됨(멀리 있어도 항상 relevant)
+    bAlwaysRelevant = true;
+
+    // (선택) Dormancy 쓰지 않도록
+    NetDormancy = DORM_Awake;
 
     // 이동 방향만 회전에 영향
     GetCharacterMovement()->bOrientRotationToMovement = false;
@@ -39,8 +51,15 @@ ASquirrel::ASquirrel()
     Camera->SetupAttachment(SpringArm);
     Camera->bUsePawnControlRotation = false;
    
-    bReplicates = true;
-    SetReplicateMovement(true);
+
+    //HP추가
+    HP = MaxHP;
+
+    GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    GetCapsuleComponent()->SetCollisionObjectType(ECC_Pawn);
+    GetCapsuleComponent()->SetCollisionResponseToAllChannels(ECR_Block);
+    GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+    GetCapsuleComponent()->SetGenerateOverlapEvents(true);
 }
 
 // [ADD] RepNotify: 모든 클라에서 스프링암 회전 반영
@@ -52,6 +71,8 @@ void ASquirrel::OnRep_ViewRot() // [ADD]
         SpringArm->SetWorldRotation(FRotator(RepViewRot.Pitch, GetActorRotation().Yaw, 0.f));
     }
 }
+
+
 
 // [ADD] 서버 권위로 Look 누적/클램프/적용
 void ASquirrel::ApplyLook_ServerAuth(const FVector2D& LookInput) // [ADD]
@@ -74,6 +95,14 @@ void ASquirrel::ApplyLook_ServerAuth(const FVector2D& LookInput) // [ADD]
         SpringArm->SetWorldRotation(FRotator(RepViewRot.Pitch, NewYaw, 0.f));
     }
 
+    // ★ 너무 자주하면 네트워크 폭증하니 30Hz 정도로 제한
+    static float LastForceTime = 0.f;
+    const float Now = GetWorld()->TimeSeconds;
+    if (Now - LastForceTime >= (1.f / 30.f))
+    {
+        ForceNetUpdate();
+        LastForceTime = Now;
+    }
 }
 
 
@@ -104,92 +133,146 @@ void ASquirrel::Move(const FVector2D& MoveInput)
 {
   
     if (MoveInput.IsNearlyZero(0.01f))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Move] INPUT ZERO Auth=%d Controller=%s Vel=%.1f"),
+            HasAuthority(), *GetNameSafe(GetController()), GetVelocity().Size());
         return;
-
+    }
     AddMovementInput(GetActorForwardVector(), MoveInput.Y); // 전후(W/S)
     AddMovementInput(GetActorRightVector(), MoveInput.X); // 좌우(A/D)
+
+    UE_LOG(LogTemp, Warning, TEXT("[Move] Auth=%d Controller=%s Vel=%.1f"),
+        HasAuthority(),
+        *GetNameSafe(GetController()),
+        GetVelocity().Size());
+
 }
 
 void ASquirrel::Fire_ServerAuth()
 {
     if (!HasAuthority()) return;
-    if (!EquippedGun) return;
+    UE_LOG(LogTemp, Warning, TEXT("Fire_ServerAuth()->HasAuthority()"));
 
+
+    //if (!EquippedGun) return;
+    if (!CurrentGun) return;
+   
+    UE_LOG(LogTemp, Warning, TEXT("Fire_ServerAuth()->EquippedGun"));
     // 너의 기존 방식대로 서버가 가진 조준값으로 AimRot 구성
     const FRotator AimRot(RepViewRot.Pitch, GetActorRotation().Yaw, 0.f);
 
     // PC 의존 제거 버전
-    EquippedGun->HandleFire(AimRot);
+    //EquippedGun->HandleFire(AimRot);
+
+    CurrentGun->HandleFire(AimRot);
+    UE_LOG(LogTemp, Warning, TEXT("[Camera] Fire:Fire_ServerAuth()->WeaponFire"));
 }
 
 void ASquirrel::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-    DOREPLIFETIME(ASquirrel, EquippedGun);
+   
     DOREPLIFETIME(ASquirrel, RepViewRot);
+    DOREPLIFETIME(ASquirrel, HP);   //HP 상태 
+    DOREPLIFETIME(ASquirrel, CurrentGun);  //현재 무기 상태 알림
 }
 
-void ASquirrel::EquipGun_ServerAuth(TSubclassOf<AALCGunBase> NewGunClass)
+
+void ASquirrel::AttachCurrentGun()
 {
-    if (!HasAuthority()) return;
-    if (!NewGunClass) return;
-
-    // 기존 총 정리
-    UnequipGun_ServerAuth();
-
-    FActorSpawnParameters Params;
-    Params.Owner = this;
-    Params.Instigator = this;
-    Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-    EquippedGun = GetWorld()->SpawnActor<AALCGunBase>(NewGunClass, Params);
-    if (EquippedGun)
-    {
-        // 서버에서도 즉시 부착(서버는 판정/디버그에 필요)
-        AttachEquippedGun();
-
-        // 복제 갱신 빠르게
-        ForceNetUpdate();
-    }
-}
-
-void ASquirrel::UnequipGun_ServerAuth()
-{
-    if (!HasAuthority()) return;
-
-    if (EquippedGun)
-    {
-        EquippedGun->Destroy();
-        EquippedGun = nullptr;
-        ForceNetUpdate();
-    }
-}
-
-void ASquirrel::OnRep_EquippedGun()
-{
-    // 클라: 장착 총이 갱신되면 부착만 처리
-    AttachEquippedGun();
-}
-
-void ASquirrel::AttachEquippedGun()
-{
-    if (!EquippedGun) return;
+    if (!CurrentGun) return;
 
     USkeletalMeshComponent* MeshComp = GetMesh();
     if (!MeshComp) return;
 
-    if (!MeshComp->DoesSocketExist(WeaponSocketName))
+    // [FIX] 소켓 이름도 한 곳에서만 관리
+    const FName HandSocket(TEXT("Hand_R_Socket"));
+
+    if (!MeshComp->DoesSocketExist(HandSocket))
     {
-        UE_LOG(LogTemp, Warning, TEXT("[AttachEquippedGun] Socket not found: %s (Mesh=%s)"),
-            *WeaponSocketName.ToString(),
+        UE_LOG(LogTemp, Warning, TEXT("[AttachCurrentGun] Socket not found: %s (Mesh=%s)"),
+            *HandSocket.ToString(),
             *MeshComp->GetName());
         return;
     }
 
-    EquippedGun->AttachToComponent(
+    // [FIX] 이미 붙어있으면 재부착 스킵(네트워크/RepNotify 중복 호출 방어)
+    if (CurrentGun->GetAttachParentActor() == this)
+    {
+        return;
+    }
+
+    CurrentGun->AttachToComponent(
         MeshComp,
         FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-        WeaponSocketName
+        HandSocket
     );
 }
+
+// [FIX] CurrentGun RepNotify (헤더에 UFUNCTION() void OnRep_CurrentGun(); 필요)
+void ASquirrel::OnRep_CurrentGun()
+{
+    // 클라: CurrentGun 갱신되면 여기서만 Attach
+    AttachCurrentGun(); // [FIX]
+}
+
+//총기 장착 함수(서버에서만 진실값 세팅)
+void ASquirrel::ServerEquipGun_Implementation(AALCGunBase* NewGun)
+{
+    if (!HasAuthority() || !NewGun)
+        return;
+
+    // [FIX] 같은 총이면 끝(중복 픽업 방어)
+    if (CurrentGun == NewGun)
+    {
+        AttachCurrentGun();
+        return;
+    }
+
+    // [FIX] 기존 총이 있으면 분리만(드랍 로직은 추후 확장)
+    if (CurrentGun)
+    {
+        CurrentGun->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+        // CurrentGun->SetOwner(nullptr);
+    }
+
+    CurrentGun = NewGun;
+    CurrentGun->SetOwner(this);
+    CurrentGun->SetInstigator(this);
+
+    // [FIX] 픽업 즉시 재오버랩/재픽업 방지: 총 쪽 충돌/물리 꺼주기
+    if (UPrimitiveComponent* RootPrim = Cast<UPrimitiveComponent>(CurrentGun->GetRootComponent()))
+    {
+        RootPrim->SetSimulatePhysics(false);
+        RootPrim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    }
+    // [FIX] 총 액터 전체 충돌을 확실히 끄고 싶으면(루트 말고 다른 컴포넌트가 오버랩 만들 때)
+    CurrentGun->SetActorEnableCollision(false);
+
+    // 서버도 즉시 Attach
+    AttachCurrentGun();
+
+    // [FIX] (권장) 총이 월드에 놓여있던 순간의 RepMovement가 남아 떨리는 걸 막고 싶으면
+    // CurrentGun->SetReplicateMovement(false);
+
+    ForceNetUpdate();
+
+    UE_LOG(LogTemp, Warning, TEXT("[Squirrel] Equipped Gun(CurrentGun): %s"), *GetNameSafe(CurrentGun));
+}
+
+
+
+//회복 관련 
+void ASquirrel::ReceiveHeal_Implementation(float HealAmount)
+{
+    if (!HasAuthority())
+    { return; }
+
+    HP = FMath::Clamp(HP + HealAmount, 0.f, MaxHP);
+
+    UE_LOG(LogTemp, Warning, TEXT("[Squirrel] Healed by %.1f, HP=%.1f"), HealAmount, HP);
+
+    // 여기서 나주에 HUD 업데이트용 멀티캐스트 RPC, 또는 HP를 바인딩한 UMG 등이 있으면 자동으로 반영시킬 수 있음
+}
+
