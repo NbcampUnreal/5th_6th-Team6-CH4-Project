@@ -1,5 +1,6 @@
 #include "UI/UW_KeyGuide.h"
 #include "Components/Border.h"
+#include "UI/UIHUD.h"
 
 void UUW_KeyGuide::NativeConstruct()
 {
