@@ -99,12 +99,10 @@ void ABaseAIController::OnTargetDetected(AActor* Actor, FAIStimulus Stimulus)
         {
             ClearFocus(EAIFocusPriority::Gameplay);
 
-            // 바로 ClearValue 하지 말고, 플레이어의 마지막 위치를 소리 위치에 저장해서 
-            // 거기로 이동하게 유도하세요.
+           
             BBComp->SetValueAsVector(TEXT("TargetLocation"), Actor->GetActorLocation());
 
-            // 일정 시간 후에도 못 찾으면 그때 지우도록 타이머를 쓰는 것이 좋습니다.
-            // 일단은 아래 코드를 주석 처리해서 추격이 유지되는지 확인하세요.
+      
             // BBComp->ClearValue(TargetActorKeyName); 
         }
     }

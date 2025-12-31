@@ -211,7 +211,7 @@ void ABaseAICharacter::UpdateDissolveParameter(float DissolveValue)
 {
     if (DynamicDissolveMaterial)
     {
-        // 머티리얼에 설정된 파라미터 이름(예: DissolveAmount)과 일치해야 합니다.
+		// 'DissolveAmount' 파라미터 업데이트
         DynamicDissolveMaterial->SetScalarParameterValue(TEXT("DissolveAmount"), DissolveValue);
     }
 }
@@ -232,8 +232,6 @@ void ABaseAICharacter::FinishDying()
         Destroy();
     }
 }
-
-
 
 // UI 업데이트 필요 시 구현
 void ABaseAICharacter::OnRep_CurrentHP()

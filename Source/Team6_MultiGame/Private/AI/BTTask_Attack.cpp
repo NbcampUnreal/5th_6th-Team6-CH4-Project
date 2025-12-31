@@ -30,7 +30,7 @@ EBTNodeResult::Type UBTTask_Attack::ExecuteTask(UBehaviorTreeComponent& OwnerCom
             {
                 if (MyOwnerComp.IsValid())
                 {
-                    // StaticClass() 대신 this를 사용하여 현재 태스크 종료를 알림
+                    
                     MyOwnerComp->OnTaskFinished(this, EBTNodeResult::Succeeded);
                 }
             }, AttackAnimDuration, false);
