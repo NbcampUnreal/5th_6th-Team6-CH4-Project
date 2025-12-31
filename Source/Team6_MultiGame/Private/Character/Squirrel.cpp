@@ -10,6 +10,8 @@
 #include "Character/Controller/MainPlayerController.h"
 #include "KYG/ALCGunBase.h"
 #include "Components/CapsuleComponent.h"
+#include "TimerManager.h"
+#include "Components/SkeletalMeshComponent.h"
 
 // Sets default values
 ASquirrel::ASquirrel()
@@ -34,12 +36,12 @@ ASquirrel::ASquirrel()
     GetCharacterMovement()->RotationRate = FRotator(0.f, 720.f, 0.f);
 
     // ★ 혹시 0으로 초기화돼 있으면 이동 절대 안 됨
-    GetCharacterMovement()->MaxWalkSpeed = 600.f;
+    GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
     /* ===== Camera Setup ===== */
 
     SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
     SpringArm->SetupAttachment(GetRootComponent());
-    SpringArm->TargetArmLength = 300.f;
+    // SpringArm->TargetArmLength = 300.f;
 
 
     SpringArm->bUsePawnControlRotation = false;
@@ -60,6 +62,15 @@ ASquirrel::ASquirrel()
     GetCapsuleComponent()->SetCollisionResponseToAllChannels(ECR_Block);
     GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
     GetCapsuleComponent()->SetGenerateOverlapEvents(true);
+
+
+    // RootMotion Dash를 Dedicated Server에서 쓸 거면(권장)
+    if (GetMesh())
+    {
+        GetMesh()->VisibilityBasedAnimTickOption =
+            EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+        GetMesh()->bEnableUpdateRateOptimizations = false;
+    }
 }
 
 // [ADD] RepNotify: 모든 클라에서 스프링암 회전 반영
@@ -106,29 +117,47 @@ void ASquirrel::ApplyLook_ServerAuth(const FVector2D& LookInput) // [ADD]
 }
 
 
-// Called when the game starts or when spawned
-void ASquirrel::BeginPlay()
-{
-	Super::BeginPlay();
 
+void ASquirrel::Jump_ServerAuth()
+{
+
+    if (!HasAuthority()) return;
+
+    Jump();
 
 }
 
-// Called every frame
-void ASquirrel::Tick(float DeltaTime)
+void ASquirrel::StopJump_ServerAuth()
 {
+    if (!HasAuthority()) return;
 
-    Super::Tick(DeltaTime);
-
-   
+    StopJumping();
 }
 
-// Called to bind functionality to input
-void ASquirrel::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
+
+void ASquirrel::ApplySprintSpeed()
+{
+    if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+    {
+        MoveComp->MaxWalkSpeed = bIsJog ? SprintSpeed : WalkSpeed;
+    }
 }
+
+void ASquirrel::SetSprinting_ServerAuth(bool bNewSprinting)
+{
+    if (!HasAuthority()) return;
+
+    bIsJog = bNewSprinting;
+    ApplySprintSpeed();
+    ForceNetUpdate();
+}
+
+void ASquirrel::OnRep_IsJog()
+{
+    ApplySprintSpeed();
+}
+
 
 
 void ASquirrel::Move(const FVector2D& MoveInput)
@@ -170,6 +199,56 @@ void ASquirrel::Fire_ServerAuth()
     UE_LOG(LogTemp, Warning, TEXT("[Camera] Fire:Fire_ServerAuth()->WeaponFire"));
 }
 
+void ASquirrel::RequestDash_ServerAuth()
+{
+    if (!HasAuthority())
+        return;
+
+    const float Now = GetWorld()->GetTimeSeconds();
+
+    // 1) 쿨다운 잠금
+    if (Now < NextDashAllowedTime)
+        return;
+
+    // 2) 이미 대쉬 중이면 중복 시작 방지(원하면 허용도 가능)
+    if (bIsDash)
+        return;
+
+    // 3) 대쉬 시작
+    bIsDash = true;
+    ForceNetUpdate();
+
+    // 4) 5초 잠금 시작
+    NextDashAllowedTime = Now + DashCooldownTime;
+
+    // 5) 일정 시간 후 자동 종료(중요: true를 “한 프레임”만 주면 복제에서 놓칠 수 있음)
+    GetWorldTimerManager().ClearTimer(DashEndTimerHandle);
+    GetWorldTimerManager().SetTimer(
+        DashEndTimerHandle,
+        this,
+        &ASquirrel::EndDash_ServerAuth,
+        DashActiveTime,
+        false
+    );
+}
+
+void ASquirrel::OnRep_IsDash()
+{
+    UE_LOG(LogTemp, Warning, TEXT("[OnRep_IsDash] %s bIsDash=%d"), *GetName(), bIsDash);
+}
+
+void ASquirrel::EndDash_ServerAuth()
+{
+    if (!HasAuthority())
+        return;
+
+    bIsDash = false;
+    ForceNetUpdate();
+}
+
+
+
+
 void ASquirrel::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -178,6 +257,8 @@ void ASquirrel::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
     DOREPLIFETIME(ASquirrel, RepViewRot);
     DOREPLIFETIME(ASquirrel, HP);   //HP 상태 
     DOREPLIFETIME(ASquirrel, CurrentGun);  //현재 무기 상태 알림
+    DOREPLIFETIME(ASquirrel, bIsJog);
+    DOREPLIFETIME(ASquirrel, bIsDash);
 }
 
 
@@ -280,3 +361,26 @@ void ASquirrel::ReceiveHeal_Implementation(float HealAmount)
     // 여기서 나주에 HUD 업데이트용 멀티캐스트 RPC, 또는 HP를 바인딩한 UMG 등이 있으면 자동으로 반영시킬 수 있음
 }
 
+// Called when the game starts or when spawned
+void ASquirrel::BeginPlay()
+{
+    Super::BeginPlay();
+
+
+}
+
+// Called every frame
+void ASquirrel::Tick(float DeltaTime)
+{
+
+    Super::Tick(DeltaTime);
+
+
+}
+
+// Called to bind functionality to input
+void ASquirrel::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+    Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+}
