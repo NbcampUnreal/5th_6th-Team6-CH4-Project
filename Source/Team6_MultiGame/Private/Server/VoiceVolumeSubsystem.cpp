@@ -8,7 +8,6 @@ void UVoiceVolumeSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
     Super::Initialize(Collection);
 
-    // 시작 시 믹스를 올려두면 이후 SetVoiceReceiveVolume이 항상 반영됨(선택)
     if (VoiceSoundMix && !bMixPushed)
     {
         UGameplayStatics::PushSoundMixModifier(this, VoiceSoundMix);

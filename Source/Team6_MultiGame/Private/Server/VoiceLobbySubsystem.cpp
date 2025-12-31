@@ -16,7 +16,7 @@ static FString NormalizeClientBaseUrl(const FString& In)
     Url.TrimStartAndEndInline();
     Url.ReplaceInline(TEXT("\r"), TEXT(""));
     Url.ReplaceInline(TEXT("\n"), TEXT(""));
-    return Url; //  /ws?ms=...&p=...&t=... 포함 “그대로”
+    return Url;
 }
 
 static FString GetEOSAuthToken(int32 LocalUserNum = 0)
@@ -50,22 +50,30 @@ static bool RebuildVoiceCredsJson(const FString& InJson, FString& OutJson)
     FString ClientBaseUrl, ParticipantToken;
 
     Obj->TryGetStringField(TEXT("ClientBaseUrl"), ClientBaseUrl);
-    if (ClientBaseUrl.IsEmpty()) Obj->TryGetStringField(TEXT("clientBaseUrl"), ClientBaseUrl);
+    if (ClientBaseUrl.IsEmpty())
+    {
+        Obj->TryGetStringField(TEXT("clientBaseUrl"), ClientBaseUrl);
+    }
 
     Obj->TryGetStringField(TEXT("ParticipantToken"), ParticipantToken);
-    if (ParticipantToken.IsEmpty()) Obj->TryGetStringField(TEXT("participantToken"), ParticipantToken);
+    if (ParticipantToken.IsEmpty())
+    {
+        Obj->TryGetStringField(TEXT("participantToken"), ParticipantToken);
+    }
 
     ClientBaseUrl = NormalizeClientBaseUrl(ClientBaseUrl);
     ParticipantToken.TrimStartAndEndInline();
 
     if (ClientBaseUrl.IsEmpty() || ParticipantToken.IsEmpty())
+    {
         return false;
+    }
 
     FEOSVoiceChatChannelCredentials Creds;
-    Creds.ClientBaseUrl = ClientBaseUrl; // 중요: 호스트만
+    Creds.ClientBaseUrl = ClientBaseUrl;
     Creds.ParticipantToken = ParticipantToken;
 
-    OutJson = Creds.ToJson(); // 보통 {"ClientBaseUrl":"...","ParticipantToken":"..."} 형태
+    OutJson = Creds.ToJson();
 
     UE_LOG(LogTemp, Warning, TEXT("[Diag] Using FULL base url = %s"), *ClientBaseUrl.Left(200));
 
@@ -94,16 +102,18 @@ void UVoiceLobbySubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 void UVoiceLobbySubsystem::Deinitialize()
 {
-    // 엔진/프로바이더마다 Logout/Disconnect 시그니처가 달라서 여기서는 안전하게 포인터만 정리
     VoiceUser = nullptr;
     VoiceChat = nullptr;
-    // 필요 시 Leave/Logout/Disconnect 정리
+
     Super::Deinitialize();
 }
 
 void UVoiceLobbySubsystem::EnsureVoiceReady()
 {
-    if (bVoiceReady) return;
+    if (bVoiceReady)
+    {
+        return;
+    }
 
     VoiceChat = IVoiceChat::Get();
     if (!VoiceChat)
@@ -135,18 +145,26 @@ bool UVoiceLobbySubsystem::JoinVoiceRoom(const FString& InRoomId, const FString&
         InTokenOrCredentialsJson.Len(),
         *InTokenOrCredentialsJson.Left(200)
     );
-    // 외부(LobbyPC)에서 이미 이 이름으로 부르니까 유지.
-    // 내부에서는 “로그인/커넥트 순서 보장 + pending join”만 처리한다.
+
     JoinVoiceChannel(InRoomId, InTokenOrCredentialsJson);
-    return bVoiceLoggedIn; // 의미 있는 true는 “로그인 상태로 진입했는지” 정도로만 사용
+    return bVoiceLoggedIn;
 }
 
 void UVoiceLobbySubsystem::EnsureVoiceConnected()
 {
     EnsureVoiceReady();
-    if (!bVoiceReady || !VoiceChat) return;
-    if (bVoiceConnected) return;
-    if (bConnectRequested) return;
+    if (!bVoiceReady || !VoiceChat)
+    {
+        return;
+    }
+    if (bVoiceConnected)
+    {
+        return;
+    }
+    if (bConnectRequested)
+    {
+        return;
+    }
 
     bConnectRequested = true;
 
@@ -163,7 +181,6 @@ FString UVoiceLobbySubsystem::GetDefaultPlayerNamePUID() const
     TSharedPtr<const FUniqueNetId> NetId = Identity.IsValid() ? Identity->GetUniquePlayerId(0) : nullptr;
     FString IdStr = NetId.IsValid() ? NetId->ToString() : TEXT("");
 
-    // EOSPlus면 "EpicAccountId|ProductUserId"일 수 있어서 뒤만 사용
     FString ProductUserIdStr = IdStr;
     IdStr.Split(TEXT("|"), nullptr, &ProductUserIdStr);
 
@@ -172,11 +189,11 @@ FString UVoiceLobbySubsystem::GetDefaultPlayerNamePUID() const
 
 void UVoiceLobbySubsystem::TryProcessPending()
 {
-    // Connect 완료 전이면 Login/Join을 뒤로 미룸
     if (!bVoiceConnected)
+    {
         return;
+    }
 
-    // Login 요청이 있으면 먼저 처리
     if (bLoginRequested && !bVoiceLoggedIn && VoiceUser)
     {
         const FPlatformUserId PlatformId = FPlatformMisc::GetPlatformUserForUserIndex(0);
@@ -192,7 +209,6 @@ void UVoiceLobbySubsystem::TryProcessPending()
         return;
     }
 
-    // 로그인 완료 + Join 대기 채널 있으면 Join 시도
     if (bVoiceLoggedIn && !PendingChannelName.IsEmpty() && VoiceUser)
     {
         VoiceUser->JoinChannel(
@@ -216,8 +232,15 @@ void UVoiceLobbySubsystem::OnVoiceConnectComplete(const FVoiceChatResult& Result
 void UVoiceLobbySubsystem::EnsureVoiceLoggedIn(const FString& PlayerName, const FString& TokenOrCredentials)
 {
     EnsureVoiceReady();
-    if (!bVoiceReady || !VoiceUser) return;
-    if (bVoiceLoggedIn) return;
+    if (!bVoiceReady || !VoiceUser)
+    {
+        return;
+    }
+
+    if (bVoiceLoggedIn)
+    {
+        return;
+    }
 
     EnsureVoiceConnected();
 
@@ -247,7 +270,7 @@ void UVoiceLobbySubsystem::EnsureVoiceLoggedIn(const FString& PlayerName, const 
     }
 
     PendingLoginPlayerName = FinalName;
-    PendingLoginCredentials = FinalCreds;   //  빈값 금지
+    PendingLoginCredentials = FinalCreds;
     bLoginRequested = true;
 
     TryProcessPending();
@@ -311,7 +334,10 @@ void UVoiceLobbySubsystem::JoinVoiceChannel(const FString& ChannelName, const FS
 
 void UVoiceLobbySubsystem::LeaveVoiceChannel(const FString& ChannelName)
 {
-    if (!VoiceUser) return;
+    if (!VoiceUser)
+    {
+        return;
+    }
 
     VoiceUser->LeaveChannel(
         ChannelName,
@@ -323,7 +349,6 @@ void UVoiceLobbySubsystem::OnVoiceLoginComplete(const FString& PlayerName, const
 {
     bVoiceLoggedIn = Result.IsSuccess();
 
-    // === 추가: OSS 쪽 UniqueId 확인 ===
     IOnlineSubsystem* OSS = IOnlineSubsystem::Get(TEXT("EOS"));
     IOnlineIdentityPtr Id = OSS ? OSS->GetIdentityInterface() : nullptr;
 
@@ -340,7 +365,6 @@ void UVoiceLobbySubsystem::OnVoiceLoginComplete(const FString& PlayerName, const
     UE_LOG(LogTemp, Warning, TEXT("[Diag] VoiceLogin user(PlayerName)=%s success=%d OSSUnique=%s"),
         *PlayerName, Result.IsSuccess() ? 1 : 0, *OSSUnique);
 
-    // 기존 로그도 유지하고 싶으면 같이 둬도 됨
     UE_LOG(LogTemp, Warning, TEXT("[Voice] LoginComplete user=%s success=%d"),
         *PlayerName, bVoiceLoggedIn ? 1 : 0);
 
@@ -367,7 +391,6 @@ static FString GetEOSProductUserIdString(int32 LocalUserNum = 0)
     TSharedPtr<const FUniqueNetId> NetId = Identity.IsValid() ? Identity->GetUniquePlayerId(LocalUserNum) : nullptr;
     FString IdStr = NetId.IsValid() ? NetId->ToString() : TEXT("");
 
-    // EOSPlus면 "EpicAccountId|ProductUserId" 형태일 수 있으니 뒤쪽만 사용
     FString ProductUserIdStr = IdStr;
     IdStr.Split(TEXT("|"), nullptr, &ProductUserIdStr);
 
