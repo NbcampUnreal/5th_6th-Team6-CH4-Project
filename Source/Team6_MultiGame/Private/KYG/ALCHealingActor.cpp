@@ -21,4 +21,8 @@ void AALCHealingActor::OnPickedUp(ACharacter* Character)
 
 		UE_LOG(LogTemp, Warning, TEXT("[HealItem] %s healed by %.1f"), *Character->GetName(), HealAmount);
 	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[HealItem] %s is not healable"), *Character->GetName());
+	}
 }

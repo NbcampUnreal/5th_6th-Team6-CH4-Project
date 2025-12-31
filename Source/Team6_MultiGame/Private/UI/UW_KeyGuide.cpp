@@ -1,5 +1,6 @@
 #include "UI/UW_KeyGuide.h"
 #include "Components/Border.h"
+#include "UI/UIHUD.h"
 
 void UUW_KeyGuide::NativeConstruct()
 {
@@ -12,6 +13,9 @@ void UUW_KeyGuide::NativeConstruct()
 	KeyBorderMap.Add("D", Border_D);
 	KeyBorderMap.Add("MouseL", Border_MouseL);
 	KeyBorderMap.Add("MouseR", Border_MouseR);
+	KeyBorderMap.Add("Shift", Border_Shift);
+	KeyBorderMap.Add("Ctrl", Border_Ctrl);
+	KeyBorderMap.Add("Space", Border_Space);
 
 	ResetAllKeys();
 }

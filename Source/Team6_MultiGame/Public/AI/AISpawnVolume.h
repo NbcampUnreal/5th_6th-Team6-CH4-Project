@@ -27,7 +27,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spawning")
 	int32 MaxAIInstanceCount = 5;
 
-	// (선택 사항) 스폰 간격을 조절하고 싶다면 추가
+	// 스폰 간격 조절
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spawning")
 	float SpawnInterval = 2.0f;
 

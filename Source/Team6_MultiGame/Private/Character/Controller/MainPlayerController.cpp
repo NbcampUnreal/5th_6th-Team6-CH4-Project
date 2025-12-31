@@ -2,14 +2,12 @@
 
 
 #include "Character/Controller/MainPlayerController.h"
-
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "Net/UnrealNetwork.h"
-
 #include "Character/Squirrel.h"
+#include "UI/UIHUD.h"
 
-#include "UI/UW_KeyGuide.h"
 
 
 AMainPlayerController::AMainPlayerController()
@@ -21,7 +19,7 @@ void AMainPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// ★ 중요: 입력 매핑은 로컬 컨트롤러에서만
+	// 중요: 입력 매핑은 로컬 컨트롤러에서만
 	if (!IsLocalController())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[BeginPlay] Not local controller, skipping input setup."));
@@ -61,13 +59,11 @@ void AMainPlayerController::BeginPlay()
 		}
 	}
 
-	if (IsLocalController() && KeyGuideClass)
+
+	UIHUD = CreateWidget<UUIHUD>(this, UIHUDClass);
+	if (UIHUD)
 	{
-		KeyGuideWidget = CreateWidget<UUW_KeyGuide>(this, KeyGuideClass);
-		if (KeyGuideWidget)
-		{
-			KeyGuideWidget->AddToViewport();
-		}
+		UIHUD->AddToViewport();
 	}
 
 }
@@ -133,6 +129,38 @@ void AMainPlayerController::SetupInputComponent()
 		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Fire is NULL"));
 	}
 	
+	// ===== Jump =====
+	if (IA_Jump)
+	{
+		EIC->BindAction(IA_Jump, ETriggerEvent::Started, this, &AMainPlayerController::OnJumpStarted);
+		EIC->BindAction(IA_Jump, ETriggerEvent::Completed, this, &AMainPlayerController::OnJumpCompleted);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Jump is NULL"));
+	}
+
+	// ===== Sprint (Shift) =====
+	if (IA_Sprint)
+	{
+		EIC->BindAction(IA_Sprint, ETriggerEvent::Started, this, &AMainPlayerController::OnSprintStarted);
+		EIC->BindAction(IA_Sprint, ETriggerEvent::Completed, this, &AMainPlayerController::OnSprintCompleted);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Sprint is NULL"));
+	}
+
+	// ===== Dash =====
+	if (IA_Dash)
+	{
+		EIC->BindAction(IA_Dash, ETriggerEvent::Started, this, &AMainPlayerController::OnDashStarted);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Dash is NULL"));
+	}
+
 }
 
 /* ===================== Role ===================== */
@@ -150,6 +178,7 @@ void AMainPlayerController::SetRole(EPlayerRole NewRole)
 	
 	
 }
+
 void AMainPlayerController::OnRep_PlayerRole() 
 {
 	if (IsLocalController())
@@ -159,12 +188,14 @@ void AMainPlayerController::OnRep_PlayerRole()
 			*GetName(),
 			PlayerRole == EPlayerRole::Camera ? TEXT("Camera") : TEXT("Move"));
 	}
+	
 	ApplyPlayerRole();
 
-	if (KeyGuideWidget)
+	if (UIHUD)
 	{
-		KeyGuideWidget->ResetAllKeys();
+		UIHUD->ResetAllKeys();
 	}
+
 }
 
 void AMainPlayerController::SetTargetSquirrel(ASquirrel* InSquirrel)
@@ -211,71 +242,90 @@ void AMainPlayerController::ApplyPlayerRole()
 		PlayerRole == EPlayerRole::Camera ? TEXT("Camera") : TEXT("Move"));
 }
 
-
 /* ===================== Input ===================== */
 
 void AMainPlayerController::OnMoveTriggered(const FInputActionValue& Value)
 {
 	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
-	{
 		return;
-	}
 
 	const FVector2D Move = Value.Get<FVector2D>();
-
-	if (Move.IsNearlyZero(0.01f))
+	if (Move.IsNearlyZero())
 		return;
 
-	
+
 	Server_SendMove(Move);
 
-	
-	if (KeyGuideWidget)
+	if (UIHUD)
 	{
-		KeyGuideWidget->SetKeyPressed("W", Move.X > 0.f);
-		KeyGuideWidget->SetKeyPressed("S", Move.X < 0.f);
-		KeyGuideWidget->SetKeyPressed("D", Move.Y > 0.f);
-		KeyGuideWidget->SetKeyPressed("A", Move.Y < 0.f);
+		UIHUD->SetKeyPressed("W", Move.Y > 0.f);
+		UIHUD->SetKeyPressed("S", Move.Y < 0.f);
+		UIHUD->SetKeyPressed("D", Move.X > 0.f);
+		UIHUD->SetKeyPressed("A", Move.X < 0.f);
 	}
 }
 
-void AMainPlayerController::OnMoveCompleted(const FInputActionValue& Value)
+void AMainPlayerController::OnMoveCompleted(const FInputActionValue&)
 {
-	if (KeyGuideWidget)
+	if (UIHUD)
 	{
-		KeyGuideWidget->ResetAllKeys();
+		UIHUD->ResetAllKeys();
 	}
 }
 
-void AMainPlayerController::OnMouseLTriggered(const FInputActionValue& Value)
+void AMainPlayerController::OnMouseLTriggered(const FInputActionValue&)
 {
-	if (KeyGuideWidget)
+	if (UIHUD)
 	{
-		KeyGuideWidget->SetKeyPressed("MouseL", true);
+		UIHUD->SetKeyPressed("MouseL", true);
 	}
 }
 
-void AMainPlayerController::OnMouseLCompleted(const FInputActionValue& Value)
+void AMainPlayerController::OnMouseLCompleted(const FInputActionValue&)
 {
-	if (KeyGuideWidget)
+	if (UIHUD)
 	{
-		KeyGuideWidget->SetKeyPressed("MouseL", false);
+		UIHUD->SetKeyPressed("MouseL", false);
 	}
 }
 
-void AMainPlayerController::OnMouseRTriggered(const FInputActionValue& Value)
+void AMainPlayerController::OnMouseRTriggered(const FInputActionValue&)
 {
-	if (KeyGuideWidget)
+	if (UIHUD)
 	{
-		KeyGuideWidget->SetKeyPressed("MouseR", true);
+		UIHUD->SetKeyPressed("MouseR", true);
 	}
 }
 
-void AMainPlayerController::OnMouseRCompleted(const FInputActionValue& Value)
+void AMainPlayerController::OnMouseRCompleted(const FInputActionValue&)
 {
-	if (KeyGuideWidget)
+	if (UIHUD)
 	{
-		KeyGuideWidget->SetKeyPressed("MouseR", false);
+		UIHUD->SetKeyPressed("MouseR", false);
+	}
+}
+
+void AMainPlayerController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+
+	if (!IsLocalController())
+		return;
+
+	if (!UIHUD)
+		return;
+
+}
+
+void AMainPlayerController::UpdateHUD_HP(float CurHP, float MaxHP)
+{
+	// 로컬 컨트롤러만 UI 갱신
+	if (!IsLocalController())
+		return;
+
+	if (UIHUD)
+	{
+		UIHUD->UpdateHP(CurHP, MaxHP);
 	}
 }
 
@@ -311,6 +361,52 @@ void AMainPlayerController::OnFireStarted(const FInputActionValue& Value)
 	Server_SendFire();
 }
 
+void AMainPlayerController::OnJumpStarted(const FInputActionValue& Value)
+{
+	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+		return;
+
+	Server_SendJump(true);
+
+}
+
+void AMainPlayerController::OnJumpCompleted(const FInputActionValue& Value)
+{
+	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+		return;
+
+	Server_SendJump(false);
+
+}
+
+void AMainPlayerController::OnSprintStarted(const FInputActionValue& Value)
+{
+	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+		return;
+
+	Server_SendSprint(true);
+
+	
+}
+
+void AMainPlayerController::OnSprintCompleted(const FInputActionValue& Value)
+{
+	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+		return;
+
+	Server_SendSprint(false);
+
+}
+
+void AMainPlayerController::OnDashStarted(const FInputActionValue& Value)
+{
+	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+		return;
+
+	// 클라 -> 서버로 대쉬 요청
+	Server_SendDash();
+}
+
 /* ===================== Server RPC ===================== */
 
 void AMainPlayerController::Server_SendMove_Implementation(const FVector2D& MoveInput)
@@ -329,7 +425,6 @@ void AMainPlayerController::Server_SendLook_Implementation(const FVector2D& Look
 	}
 }
 
-
 void AMainPlayerController::Server_SendFire_Implementation()
 {
 	// 서버에서도 역할 체크(치트/실수 방지)
@@ -339,7 +434,32 @@ void AMainPlayerController::Server_SendFire_Implementation()
 	if (TargetSquirrel)
 	{
 		TargetSquirrel->Fire_ServerAuth();
+		UE_LOG(LogTemp, Warning, TEXT("[Camera] Fire:Fire_ServerAuth()"));
 	}
+}
+
+void AMainPlayerController::Server_SendJump_Implementation(bool bPressed)
+{
+	if (!TargetSquirrel) return;
+
+	if (bPressed) TargetSquirrel->Jump_ServerAuth();
+	else          TargetSquirrel->StopJump_ServerAuth();
+}
+
+void AMainPlayerController::Server_SendSprint_Implementation(bool bSprinting)
+{
+	if (!TargetSquirrel) return;
+
+	TargetSquirrel->SetSprinting_ServerAuth(bSprinting);
+}
+
+void AMainPlayerController::Server_SendDash_Implementation()
+{
+	// 서버에서도 역할 체크
+	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+		return;
+
+	TargetSquirrel->RequestDash_ServerAuth(); // 아래 2)에서 구현
 }
 
 /* ===================== Replication ===================== */

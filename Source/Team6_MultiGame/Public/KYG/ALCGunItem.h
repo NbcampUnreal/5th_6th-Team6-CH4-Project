@@ -12,7 +12,7 @@ class TEAM6_MULTIGAME_API AALCGunItem : public AALCBaseItem
 	GENERATED_BODY()
 	
 public:
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Category = "Gun")
 	TSubclassOf<class AALCGunBase> GunClass;
 
 protected:

@@ -28,7 +28,8 @@ public class Team6_MultiGame : ModuleRules
             "EOSVoiceChat",
             "Http",
             "Json",
-            "JsonUtilities"
+            "JsonUtilities",
+            "Niagara"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[] { });

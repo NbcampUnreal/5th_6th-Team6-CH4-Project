@@ -7,15 +7,11 @@
 #include "InputActionValue.h"
 #include "MainPlayerController.generated.h"
 
-class UUW_KeyGuide;
-/**
- * 
- */
-
 class ASquirrel;
 class UInputMappingContext;
 class UInputAction;
 class ASquirrelAIController;
+class UUIHUD;
 
 UENUM(BlueprintType)
 enum class EPlayerRole : uint8
@@ -62,6 +58,15 @@ protected:
 	void OnMoveTriggered(const FInputActionValue& Value);
 	void OnLookTriggered(const FInputActionValue& Value);
 	void OnFireStarted(const FInputActionValue& Value);
+	// ===== Handlers =====
+	void OnJumpStarted(const FInputActionValue& Value);
+	void OnJumpCompleted(const FInputActionValue& Value);
+
+	void OnSprintStarted(const FInputActionValue& Value);
+	void OnSprintCompleted(const FInputActionValue& Value);
+
+	// 입력 콜백
+	void OnDashStarted(const FInputActionValue& Value);
 	/* ===================== Server RPC ===================== */
 	UFUNCTION(Server, Reliable)
 	void Server_SendMove(const FVector2D& MoveInput);
@@ -71,6 +76,16 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void Server_SendFire();
+
+	UFUNCTION(Server, Reliable)
+	void Server_SendJump(bool bPressed);
+
+	UFUNCTION(Server, Reliable)
+	void Server_SendSprint(bool bSprinting);
+
+	UFUNCTION(Server, Reliable)
+	void Server_SendDash();
+
 
 public:
 	/* ===================== Input Assets ===================== */
@@ -90,9 +105,17 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	UInputAction* IA_MouseR;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	UInputAction* IA_Fire;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UInputAction* IA_Jump = nullptr;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UInputAction* IA_Sprint = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UInputAction* IA_Dash;
 protected:
 	/* ===================== Replication ===================== */
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -100,16 +123,23 @@ protected:
 protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<UUW_KeyGuide> KeyGuideClass;
+	TSubclassOf<UUIHUD> UIHUDClass;
 
 	UPROPERTY()
-	TObjectPtr<UUW_KeyGuide> KeyGuideWidget;
+	TObjectPtr<UUIHUD> UIHUD;
 
-	void OnMoveCompleted(const FInputActionValue& Value);
+	void OnMoveCompleted(const FInputActionValue&);
 
-	void OnMouseLTriggered(const FInputActionValue& Value);
-	void OnMouseLCompleted(const FInputActionValue& Value);
+	void OnMouseLTriggered(const FInputActionValue&);
+	void OnMouseLCompleted(const FInputActionValue&);
 
-	void OnMouseRTriggered(const FInputActionValue& Value);
-	void OnMouseRCompleted(const FInputActionValue& Value);
+	void OnMouseRTriggered(const FInputActionValue&);
+	void OnMouseRCompleted(const FInputActionValue&);
+
+	virtual void OnPossess(APawn* InPawn) override;
+
+public:
+
+	void UpdateHUD_HP(float CurHP, float MaxHP);
+
 };
