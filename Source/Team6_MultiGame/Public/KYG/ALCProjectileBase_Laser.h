@@ -15,6 +15,9 @@ class TEAM6_MULTIGAME_API AALCProjectileBase_Laser : public AALCProjectileBase
 	GENERATED_BODY()
 	
 public:
+
+	//AALCProjectileBase_Laser();
+	
 	// 레이저는 날아가는 탄 이 아니라 발사 순간 처리 //기존 Init를 건베이스에서 추상화 시켜야됨.
 	virtual void Init(float InDamage, FVector Direction, float Speed) override;
 
@@ -32,6 +35,6 @@ protected:
 	UNiagaraSystem* LaserVFX;
 
 	// 모든 클라에 이펙트만 전파 (데미지는 서버에서 이미 처리)
-	UFUNCTION(NetMulticast, Unreliable)
+	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayLaserFX(const FVector& Start, const FVector& End);
 };
