@@ -181,13 +181,38 @@ void ABaseAICharacter::Die()
 
 void ABaseAICharacter::MulticastPlayDeath_Implementation()
 {
+    // 1. 애니메이션 재생
     if (AppearancePresets.IsValidIndex(SelectedAppearanceIndex))
     {
         UAnimMontage* DeathAnim = AppearancePresets[SelectedAppearanceIndex].DeathMontage;
-        if (DeathAnim)
+        if (DeathAnim) PlayAnimMontage(DeathAnim);
+    }
+
+    // 2. 메시 컴포넌트 가져오기
+    USkeletalMeshComponent* MeshComp = GetMesh();
+    if (MeshComp)
+    {
+        // [중요] 에디터에서 설정한 마스터 머티리얼이 있다면 메시의 0번 슬롯에 덮어씌웁니다.
+        if (DissolveMasterMaterial)
         {
-            PlayAnimMontage(DeathAnim);
+            MeshComp->SetMaterial(0, DissolveMasterMaterial);
         }
+
+        // 이제 그 0번 슬롯(디졸브 머티리얼)을 제어할 다이내믹 인스턴스 생성
+        DynamicDissolveMaterial = MeshComp->CreateDynamicMaterialInstance(0);
+    }
+
+    // 3. 블루프린트 타임라인 이벤트 호출
+    BP_StartDissolveEffect();
+}
+
+// 블루프린트 타임라인의 'Update' 핀에 연결될 함수
+void ABaseAICharacter::UpdateDissolveParameter(float DissolveValue)
+{
+    if (DynamicDissolveMaterial)
+    {
+        // 머티리얼에 설정된 파라미터 이름(예: DissolveAmount)과 일치해야 합니다.
+        DynamicDissolveMaterial->SetScalarParameterValue(TEXT("DissolveAmount"), DissolveValue);
     }
 }
 
@@ -198,6 +223,17 @@ void ABaseAICharacter::OnRep_IsDead()
         GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     }
 }
+
+void ABaseAICharacter::FinishDying()
+{
+    
+    if (HasAuthority())
+    {
+        Destroy();
+    }
+}
+
+
 
 // UI 업데이트 필요 시 구현
 void ABaseAICharacter::OnRep_CurrentHP()

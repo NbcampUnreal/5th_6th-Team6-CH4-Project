@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "AIController.h"
 #include "Perception/AIPerceptionTypes.h"
+#include "Perception/AISenseConfig_Hearing.h"
 #include "BaseAIController.generated.h"
 
 UCLASS()
@@ -31,9 +32,13 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
     class UAIPerceptionComponent* AIPerception;
 
-    // 시각 설정 컴포넌트
-    UPROPERTY()
+    // 시각 설정 컴포넌트 (여기에 VisibleAnywhere를 추가합니다)
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
     class UAISenseConfig_Sight* SightConfig;
+
+    // 청각 설정 컴포넌트
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
+    class UAISenseConfig_Hearing* HearingConfig;
 
     // 블랙보드 키 이름 
     UPROPERTY(EditAnywhere, Category = "AI")

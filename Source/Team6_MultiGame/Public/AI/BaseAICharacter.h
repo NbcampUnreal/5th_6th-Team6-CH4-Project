@@ -30,9 +30,12 @@ class TEAM6_MULTIGAME_API ABaseAICharacter : public ACharacter
 public:
     ABaseAICharacter();
 
-    // 외형 설정
     UPROPERTY(EditAnywhere, Category = "AI|Appearance")
     TArray<FAIAppearanceSet> AppearancePresets;
+
+    // [중요] 여기에 한 번만 선언하면 됩니다!
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Effects")
+    class UMaterialInterface* DissolveMasterMaterial;
 
     UPROPERTY(ReplicatedUsing = OnRep_SelectedAppearanceIndex)
     int32 SelectedAppearanceIndex = -1;
@@ -40,21 +43,21 @@ public:
     UFUNCTION()
     void OnRep_SelectedAppearanceIndex();
 
-    // 공격 로직
-    UFUNCTION(BlueprintCallable, Category = "AI|Combat") 
-        void PlayAttackMontage();
+    UFUNCTION(BlueprintCallable, Category = "AI|Combat")
+    void PlayAttackMontage();
 
-    UFUNCTION(BlueprintCallable, Category = "AI|Combat") 
-        void OnAttackHitCheck();
+    UFUNCTION(BlueprintCallable, Category = "AI|Combat")
+    void OnAttackHitCheck();
 
     UFUNCTION(NetMulticast, Reliable)
     void MulticastPlayAttackMontage();
 
-    // 데미지 수신
     virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
 
-    // AIController에서 죽었는지 확인할 수 있는 함수 
     FORCEINLINE bool IsDead() const { return bIsDead; }
+
+    UFUNCTION(BlueprintCallable, Category = "AI|Death")
+    void FinishDying();
 
 protected:
     virtual void BeginPlay() override;
@@ -62,7 +65,6 @@ protected:
     void ApplyAppearance();
     virtual void PostNetInit() override;
 
-    // 전투 및 스탯 설정
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Combat")
     float AttackRange = 150.f;
 
@@ -88,4 +90,14 @@ protected:
     void MulticastPlayDeath();
 
     void Die();
+
+    UPROPERTY()
+    class UMaterialInstanceDynamic* DynamicDissolveMaterial;
+
+    UFUNCTION(BlueprintImplementableEvent, Category = "AI|Effects")
+    void BP_StartDissolveEffect();
+
+    UFUNCTION(BlueprintCallable, Category = "AI|Effects")
+    void UpdateDissolveParameter(float DissolveValue);
+
 };
