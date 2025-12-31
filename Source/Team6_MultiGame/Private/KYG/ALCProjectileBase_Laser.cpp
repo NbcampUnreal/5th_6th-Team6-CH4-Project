@@ -2,28 +2,28 @@
 
 #include "KYG/ALCProjectileBase_Laser.h"
 #include "Kismet/GameplayStatics.h"
-#include "KYG/LCDamageable.h"
+//#include "KYG/LCDamageable.h"
 #include "DrawDebugHelpers.h" //디버그레이저
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraComponent.h"   
 #include "GameFramework/ProjectileMovementComponent.h" 
 #include "Components/SphereComponent.h"       
 
-//AALCProjectileBase_Laser::AALCProjectileBase_Laser()
-//{
-//    if (MovementComp)
-//    {//날아가는 발사체가 아니라서 이동은 쓰지 않게 설정.
-//        MovementComp->InitialSpeed = 0.f;
-//        MovementComp->MaxSpeed = 0.f;
-//        MovementComp->ProjectileGravityScale = 0.f;
-//        MovementComp->bAutoActivate = false;
-//    }
-//    //레이저는 오버렙충돌을 안 써도 됨.
-//    if (CollisionComp)
-//    {
-//        CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-//    }
-//}
+AALCProjectileBase_Laser::AALCProjectileBase_Laser()
+{
+    if (MovementComp)
+    {//날아가는 발사체가 아니라서 이동은 쓰지 않게 설정.
+        MovementComp->InitialSpeed = 0.f;
+        MovementComp->MaxSpeed = 0.f;
+        MovementComp->ProjectileGravityScale = 0.f;
+        MovementComp->bAutoActivate = false;
+    }
+    //레이저는 오버렙충돌을 안 써도 됨.
+    if (CollisionComp)
+    {
+        CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    }
+}
 
 void AALCProjectileBase_Laser::Init(float InDamage, FVector Direction, float Speed)
 {
@@ -65,16 +65,18 @@ void AALCProjectileBase_Laser::Init(float InDamage, FVector Direction, float Spe
     {
         for (const FHitResult& HR : Hits)
         {
-            if (!HR.bBlockingHit) continue;
+            if (!HR.bBlockingHit) { continue; }
 
             const float Dist = (HR.ImpactPoint - Start).Size();
 
+            //태그로 막는 오브젝트
             if (bWorldStaticBlocksLaser &&
                 HR.GetActor() &&
                 HR.GetActor()->ActorHasTag(TEXT("LaserBlock")))
             {
                 MaxAllowedDist = FMath::Min(MaxAllowedDist, Dist);
             }
+            //월드 스태틱 충돌도 벽으로 취급
             else if (bWorldStaticBlocksLaser &&
                 HR.Component.IsValid() &&
                 HR.Component->GetCollisionObjectType() == ECC_WorldStatic)
@@ -104,22 +106,24 @@ void AALCProjectileBase_Laser::Init(float InDamage, FVector Direction, float Spe
         for (const FHitResult& HR : Hits)
         {
             AActor* Target = HR.GetActor();
-            if (!Target)
-            {
-                continue;
-            }
+            if (!Target || Target == this)
+            {continue;}
 
             const float Dist = (HR.ImpactPoint - Start).Size();
             if (Dist > MaxAllowedDist + 1.f)
             {
-                // 막히는 지점 뒤에 있는 애들은 무시
+                // 레이저가 막힌 지점 뒤에 있는 애들은 무시
                 continue;
             }
 
-            if (Target->GetClass()->ImplementsInterface(ULCDamageable::StaticClass()))
-            {
-                ILCDamageable::Execute_ReceiveDamage(Target, Damage, GetInstigator());
-            }
+            // ★ 여기서 엔진 Damage 시스템 사용
+            UGameplayStatics::ApplyDamage(
+                Target,
+                Damage,
+                GetInstigator() ? GetInstigator()->GetController() : nullptr,
+                this,                         // DamageCauser = 이 레이저 액터
+                UDamageType::StaticClass()
+            );
         }
     }
     // 모든 클라에 FX만 보여주기
