@@ -32,7 +32,7 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
     class UAIPerceptionComponent* AIPerception;
 
-    // 시각 설정 컴포넌트 (여기에 VisibleAnywhere를 추가합니다)
+    // 시각 설정 컴포넌트 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
     class UAISenseConfig_Sight* SightConfig;
 

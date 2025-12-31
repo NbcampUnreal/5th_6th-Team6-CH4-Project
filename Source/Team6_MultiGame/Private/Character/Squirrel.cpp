@@ -246,8 +246,92 @@ void ASquirrel::EndDash_ServerAuth()
     ForceNetUpdate();
 }
 
+// (선택) 로그/디버그용
+void ASquirrel::OnRep_HP()
+{
+    // 여기서 HUD 갱신, 피격 UI, 사운드 등을 처리 가능(클라에서 호출됨)
+    UE_LOG(LogTemp, Log, TEXT("[OnRep_HP] %s HP=%.1f"), *GetName(), HP);
+}
+
+float ASquirrel::TakeDamage(
+    float DamageAmount,
+    FDamageEvent const& DamageEvent,
+    AController* EventInstigator,
+    AActor* DamageCauser
+)
+{
+    // 서버에서만 HP를 깎는다(진실은 서버)
+    if (!HasAuthority())
+    {
+        return 0.f;
+    }
+
+    if (DamageAmount <= 0.f || HP <= 0.f)
+    {
+        return 0.f;
+    }
+
+    const float Applied = FMath::Min(DamageAmount, HP);
+    HP = FMath::Clamp(HP - Applied, 0.f, MaxHP);
+
+    UE_LOG(LogTemp, Warning, TEXT("[Damage] %s took %.1f (HP=%.1f) causer=%s instigator=%s"),
+        *GetName(),
+        Applied,
+        HP,
+        *GetNameSafe(DamageCauser),
+        *GetNameSafe(EventInstigator)
+    );
 
 
+    // HP 변경을 더 빨리 보내고 싶으면
+    ForceNetUpdate();
+
+    if (HP <= 0.f)
+    {
+        Die(EventInstigator, DamageCauser);
+    }
+
+    return Applied;
+}
+
+void ASquirrel::Die(AController* Killer, AActor* DamageCauser)
+{
+    if (!HasAuthority()) return;
+    if (bIsDead) return; // 중복 사망 방지
+
+    bIsDead = true;
+    ForceNetUpdate();
+
+    // 서버도 즉시 레그돌 적용
+    OnRep_IsDead();
+
+    SetLifeSpan(8.f);
+}
+
+void ASquirrel::OnRep_IsDead()
+{
+    if (!bIsDead) return;
+
+    // 이동/충돌 정지(선택)
+    if (UCharacterMovementComponent* Move = GetCharacterMovement())
+    {
+        Move->StopMovementImmediately();
+        Move->DisableMovement();
+    }
+
+    if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+    {
+        Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    }
+
+    // 레그돌
+    if (USkeletalMeshComponent* MeshComp = GetMesh())
+    {
+        MeshComp->SetCollisionProfileName(TEXT("Ragdoll"));
+        MeshComp->SetSimulatePhysics(true);
+        MeshComp->bBlendPhysics = true; // 권장
+    }
+}
 
 void ASquirrel::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -259,6 +343,8 @@ void ASquirrel::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
     DOREPLIFETIME(ASquirrel, CurrentGun);  //현재 무기 상태 알림
     DOREPLIFETIME(ASquirrel, bIsJog);
     DOREPLIFETIME(ASquirrel, bIsDash);
+    DOREPLIFETIME(ASquirrel, bIsDead);
+
 }
 
 
