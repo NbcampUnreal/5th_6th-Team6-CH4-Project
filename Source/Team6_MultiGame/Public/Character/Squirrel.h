@@ -62,6 +62,17 @@ public:
 	float DashCooldownTime = 5.f;
 
 	void EndDash_ServerAuth();
+
+
+	// 언리얼 표준 데미지 진입점(ApplyDamage / ApplyPointDamage가 이걸 호출)
+	virtual float TakeDamage(
+		float DamageAmount,
+		struct FDamageEvent const& DamageEvent,
+		class AController* EventInstigator,
+		class AActor* DamageCauser
+	) override;
+
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -92,13 +103,24 @@ protected:
 	
 
 	//======== HP구현 ==========
-	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Status")
-	float HP;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Status")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "HP")
 	float MaxHP = 100.f;
 
+	// 기존 HP가 이미 있다면 ReplicatedUsing만 추가해도 됨
+	UPROPERTY(ReplicatedUsing = OnRep_HP, BlueprintReadOnly, Category = "HP")
+	float HP;
 
+	UFUNCTION()
+	void OnRep_HP();
+
+	void Die(AController* Killer, AActor* DamageCauser);
+
+	// ===== Death / Ragdoll =====
+	UPROPERTY(ReplicatedUsing = OnRep_IsDead, BlueprintReadOnly, Category = "HP")
+	bool bIsDead = false;
+
+	UFUNCTION()
+	void OnRep_IsDead();
 
 public:
 	// Called every frame
