@@ -31,6 +31,9 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional)) UBorder* Border_MouseL;
 	UPROPERTY(meta = (BindWidgetOptional)) UBorder* Border_MouseR;
 
+	UPROPERTY(meta = (BindWidgetOptional)) UBorder* Border_Shift;
+	UPROPERTY(meta = (BindWidgetOptional)) UBorder* Border_Ctrl;
+	UPROPERTY(meta = (BindWidgetOptional)) UBorder* Border_Space;
 private:
 	
 	TMap<FName, UBorder*> KeyBorderMap;

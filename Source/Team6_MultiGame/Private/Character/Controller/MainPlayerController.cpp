@@ -354,21 +354,20 @@ void AMainPlayerController::OnJumpStarted(const FInputActionValue& Value)
 	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
 		return;
 
+	UIHUD->SetKeyPressed("Space", true);
+
 	Server_SendJump(true);
 
-	if (KeyGuideWidget)
-		KeyGuideWidget->SetKeyPressed("Space", true);
 }
 
 void AMainPlayerController::OnJumpCompleted(const FInputActionValue& Value)
 {
 	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
 		return;
+	UIHUD->SetKeyPressed("Space", false);
 
 	Server_SendJump(false);
 
-	if (KeyGuideWidget)
-		KeyGuideWidget->SetKeyPressed("Space", false);
 }
 
 void AMainPlayerController::OnSprintStarted(const FInputActionValue& Value)
@@ -376,10 +375,10 @@ void AMainPlayerController::OnSprintStarted(const FInputActionValue& Value)
 	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
 		return;
 
+	UIHUD->SetKeyPressed("Shift", true);
+	
 	Server_SendSprint(true);
 
-	if (KeyGuideWidget)
-		KeyGuideWidget->SetKeyPressed("Shift", true);
 }
 
 void AMainPlayerController::OnSprintCompleted(const FInputActionValue& Value)
@@ -387,10 +386,11 @@ void AMainPlayerController::OnSprintCompleted(const FInputActionValue& Value)
 	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
 		return;
 
+	UIHUD->SetKeyPressed("Shift", false);
+
 	Server_SendSprint(false);
 
-	if (KeyGuideWidget)
-		KeyGuideWidget->SetKeyPressed("Shift", false);
+
 }
 
 
