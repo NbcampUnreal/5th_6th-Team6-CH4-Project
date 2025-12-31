@@ -25,6 +25,7 @@ public class Team6_MultiGame : ModuleRules
             "OnlineSubsystemUtils",
 
             "VoiceChat",
+            "EOSVoiceChat",
             "Http",
             "Json",
             "JsonUtilities"

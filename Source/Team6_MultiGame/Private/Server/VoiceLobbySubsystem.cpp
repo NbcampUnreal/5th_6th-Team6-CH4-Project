@@ -4,6 +4,7 @@
 
 #include "VoiceChat.h"
 #include "VoiceChatResult.h"
+#include "EOSVoiceChatTypes.h"
 #include "HAL/PlatformMisc.h"
 #include "OnlineSubsystem.h"
 #include "Policies/CondensedJsonPrintPolicy.h"
@@ -13,13 +14,9 @@ static FString NormalizeClientBaseUrl(const FString& In)
 {
     FString Url = In;
     Url.TrimStartAndEndInline();
-
-    // JSON 파싱/로그에서 섞일 수 있는 개행 제거만
     Url.ReplaceInline(TEXT("\r"), TEXT(""));
     Url.ReplaceInline(TEXT("\n"), TEXT(""));
-
-    //  절대 /ws?ms=... 같은 path/query를 잘라내지 마
-    return Url;
+    return Url; //  /ws?ms=...&p=...&t=... 포함 “그대로”
 }
 
 static FString GetEOSAuthToken(int32 LocalUserNum = 0)
@@ -52,41 +49,26 @@ static bool RebuildVoiceCredsJson(const FString& InJson, FString& OutJson)
 
     FString ClientBaseUrl, ParticipantToken;
 
-    if (!Obj->TryGetStringField(TEXT("ClientBaseUrl"), ClientBaseUrl))
-        Obj->TryGetStringField(TEXT("clientBaseUrl"), ClientBaseUrl);
+    Obj->TryGetStringField(TEXT("ClientBaseUrl"), ClientBaseUrl);
+    if (ClientBaseUrl.IsEmpty()) Obj->TryGetStringField(TEXT("clientBaseUrl"), ClientBaseUrl);
 
-    if (!Obj->TryGetStringField(TEXT("ParticipantToken"), ParticipantToken))
-        Obj->TryGetStringField(TEXT("participantToken"), ParticipantToken);
+    Obj->TryGetStringField(TEXT("ParticipantToken"), ParticipantToken);
+    if (ParticipantToken.IsEmpty()) Obj->TryGetStringField(TEXT("participantToken"), ParticipantToken);
 
-    ClientBaseUrl.TrimStartAndEndInline();
+    ClientBaseUrl = NormalizeClientBaseUrl(ClientBaseUrl);
     ParticipantToken.TrimStartAndEndInline();
 
-    const FString BaseUrlToUse = ClientBaseUrl;
-
-    UE_LOG(LogTemp, Warning, TEXT("[VoiceToken] BaseUrl RAW = %s"), *ClientBaseUrl);
-    UE_LOG(LogTemp, Warning, TEXT("[VoiceToken] BaseUrl NORM= %s"), *BaseUrlToUse);
-
-    if (BaseUrlToUse.IsEmpty() || ParticipantToken.IsEmpty())
+    if (ClientBaseUrl.IsEmpty() || ParticipantToken.IsEmpty())
         return false;
 
-    const FString FullId = GetLocalUniqueIdString_Full();
-    UE_LOG(LogTemp, Warning, TEXT("[VoiceToken] OverrideUserId=%s"), *FullId);
+    FEOSVoiceChatChannelCredentials Creds;
+    Creds.ClientBaseUrl = ClientBaseUrl; // 중요: 호스트만
+    Creds.ParticipantToken = ParticipantToken;
 
-    TSharedRef<FJsonObject> Clean = MakeShared<FJsonObject>();
-    Clean->SetStringField(TEXT("clientBaseUrl"), BaseUrlToUse);
-    Clean->SetStringField(TEXT("participantToken"), ParticipantToken);
+    OutJson = Creds.ToJson(); // 보통 {"ClientBaseUrl":"...","ParticipantToken":"..."} 형태
 
-    if (!FullId.IsEmpty())
-    {
-        Clean->SetStringField(TEXT("OverrideUserId"), FullId);
-    }
- 
-    FString Out;
-    const TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>> Writer =
-        TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&Out);
-    FJsonSerializer::Serialize(Clean, Writer);
+    UE_LOG(LogTemp, Warning, TEXT("[Diag] Using FULL base url = %s"), *ClientBaseUrl.Left(200));
 
-    OutJson = Out;
     return true;
 }
 
@@ -288,9 +270,9 @@ void UVoiceLobbySubsystem::JoinVoiceChannel(const FString& ChannelName, const FS
     UE_LOG(LogTemp, Warning, TEXT("[VoiceToken] CleanCreds len=%d head=%s"),
         CleanCreds.Len(), *CleanCreds.Left(200));
 
-    UE_LOG(LogTemp, Warning, TEXT("[Diag] Has clientBaseUrl=%d participantToken=%d"),
-        CleanCreds.Contains(TEXT("\"clientBaseUrl\"")) ? 1 : 0,
-        CleanCreds.Contains(TEXT("\"participantToken\"")) ? 1 : 0);
+    UE_LOG(LogTemp, Warning, TEXT("[Diag] Has client_base_url=%d participant_token=%d"),
+        CleanCreds.Contains(TEXT("\"client_base_url\"")) ? 1 : 0,
+        CleanCreds.Contains(TEXT("\"participant_token\"")) ? 1 : 0);
 
     {
         TSharedPtr<FJsonObject> Obj;
