@@ -75,6 +75,20 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
 
 
 
+void ACharacterGameMode::Logout(AController* Exiting)
+{
+    AMainPlayerController* PC = Cast<AMainPlayerController>(Exiting);
 
+    const TCHAR* RoleText = TEXT("Unknown");
+    if (PC)
+    {
+        // ★ SetRole 호출 금지! 그냥 현재 값 읽기
+        RoleText = (PC->PlayerRole == EPlayerRole::Camera) ? TEXT("Camera") : TEXT("Move");
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("[GM] Logout Role=%s"), RoleText);
+
+    Super::Logout(Exiting);
+}
 
 

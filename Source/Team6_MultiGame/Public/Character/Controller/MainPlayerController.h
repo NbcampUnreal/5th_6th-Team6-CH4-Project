@@ -32,14 +32,15 @@ public:
 	void SetRole(EPlayerRole NewRole);
 	void SetTargetSquirrel(ASquirrel* InSquirrel);
 
+	UPROPERTY(ReplicatedUsing = OnRep_PlayerRole)
+	EPlayerRole PlayerRole = EPlayerRole::Move;
 protected:
 	/* ===================== Lifecycle ===================== */
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
 
 	/* ===================== Role ===================== */
-	UPROPERTY(ReplicatedUsing = OnRep_PlayerRole)
-	EPlayerRole PlayerRole = EPlayerRole::Move;
+
 
 	UFUNCTION()
 	void OnRep_PlayerRole();

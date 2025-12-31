@@ -24,7 +24,7 @@ public:
 
 	// 플레이어 접속 시 호출
 	virtual void PostLogin(APlayerController* NewPlayer) override;
-
+	virtual void Logout(AController* Exiting) override;   // ★ 추가
 protected:
 	
 	// 레벨에 배치된 다람쥐
