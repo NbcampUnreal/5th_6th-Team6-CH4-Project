@@ -7,6 +7,9 @@
 #include "Components/Button.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Character/Controller/MainPlayerController.h"
+#include "CharacterGameMode/CharacterGameState.h"
+
 
 void UUW_Result::NativeConstruct()
 {
@@ -26,10 +29,23 @@ void UUW_Result::NativeConstruct()
 void UUW_Result::OnRestartClicked()
 {
 	FString CurrentLevel = UGameplayStatics::GetCurrentLevelName(this, true);
-	UGameplayStatics::OpenLevel(this, FName(*CurrentLevel));
+	UGameplayStatics::OpenLevel(this, FName("/Game/Server/Maps/LobbyMap"));
 }
 
 void UUW_Result::OnExitClicked()
 {
 	UKismetSystemLibrary::QuitGame(this, nullptr, EQuitPreference::Quit, true);
 }
+
+/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
+void UUW_Result::SetTitleText(bool bClear)
+{
+	if (!ResultText) return;
+
+	ResultText->SetText(
+		bClear
+		? FText::FromString(TEXT("!! Game Clear !!"))
+		: FText::FromString(TEXT("Game Over"))
+	);
+}
+/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
