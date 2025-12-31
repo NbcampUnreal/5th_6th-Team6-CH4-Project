@@ -3,7 +3,8 @@
 #include "KYG/ALCProjectileBase.h"
 #include "Components/SphereComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
-#include "KYG/LCDamageable.h"
+//#include "KYG/LCDamageable.h"
+#include "Kismet/GameplayStatics.h"
 
 AALCProjectileBase::AALCProjectileBase()
 {
@@ -94,10 +95,16 @@ void AALCProjectileBase::OnHit(
 		Target = OtherComp->GetOwner();
 	}
 
-	if (Target && Target != this &&
-		Target->GetClass()->ImplementsInterface(ULCDamageable::StaticClass()))
+	if (Target && Target != this )
+		//Target->GetClass()->ImplementsInterface(ULCDamageable::StaticClass()))
 	{
-		ILCDamageable::Execute_ReceiveDamage(Target, Damage, GetInstigator());
+		UGameplayStatics::ApplyDamage(
+			Target,
+			Damage,
+			GetInstigator() ? GetInstigator()->GetController() : nullptr, // 공격자 컨트롤러
+			this,                                                          // DamageCauser = 이 발사체
+			UDamageType::StaticClass()
+		);
 	}
 
 	Destroy();
