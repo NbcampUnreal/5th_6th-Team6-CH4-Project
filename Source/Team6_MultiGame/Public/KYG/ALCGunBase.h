@@ -19,6 +19,7 @@ public:
 
 	/*UFUNCTION(BlueprintCallable)
 	void Fire();*/
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	void HandleFire(const FRotator& AimRot);
 protected:
@@ -34,6 +35,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	float FireCooldown;
 
+	//메쉬 총구 위치.
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* GunMesh;
 
@@ -52,6 +54,11 @@ protected:
 	/*UFUNCTION(Server, Reliable)
 	void ServerFire();
 	void ServerFire_Implementation();*/
-
+	//최대 탄 수 일반총 20, 레이저 30으로 BP설정하시오.
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon|Ammo")
+	int32 MaxAmmo = 20;
 	
+	// 현재 남은 탄 수 Replicate 해서 HUD 등에 쓸 수 있게
+	UPROPERTY(Replicated, VisibleAnywhere, Category = "Weapon|Ammo")
+	int32 CurrentAmmo;
 };
