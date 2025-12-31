@@ -150,6 +150,17 @@ void AMainPlayerController::SetupInputComponent()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Sprint is NULL"));
 	}
+
+	// ===== Dash =====
+	if (IA_Dash)
+	{
+		EIC->BindAction(IA_Dash, ETriggerEvent::Started, this, &AMainPlayerController::OnDashStarted);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Dash is NULL"));
+	}
+
 }
 
 /* ===================== Role ===================== */
@@ -241,6 +252,7 @@ void AMainPlayerController::OnMoveTriggered(const FInputActionValue& Value)
 	const FVector2D Move = Value.Get<FVector2D>();
 	if (Move.IsNearlyZero())
 		return;
+
 
 	Server_SendMove(Move);
 
@@ -354,8 +366,6 @@ void AMainPlayerController::OnJumpStarted(const FInputActionValue& Value)
 	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
 		return;
 
-	UIHUD->SetKeyPressed("Space", true);
-
 	Server_SendJump(true);
 
 }
@@ -364,7 +374,6 @@ void AMainPlayerController::OnJumpCompleted(const FInputActionValue& Value)
 {
 	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
 		return;
-	UIHUD->SetKeyPressed("Space", false);
 
 	Server_SendJump(false);
 
@@ -375,10 +384,9 @@ void AMainPlayerController::OnSprintStarted(const FInputActionValue& Value)
 	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
 		return;
 
-	UIHUD->SetKeyPressed("Shift", true);
-	
 	Server_SendSprint(true);
 
+	
 }
 
 void AMainPlayerController::OnSprintCompleted(const FInputActionValue& Value)
@@ -386,14 +394,18 @@ void AMainPlayerController::OnSprintCompleted(const FInputActionValue& Value)
 	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
 		return;
 
-	UIHUD->SetKeyPressed("Shift", false);
-
 	Server_SendSprint(false);
-
 
 }
 
+void AMainPlayerController::OnDashStarted(const FInputActionValue& Value)
+{
+	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+		return;
 
+	// 클라 -> 서버로 대쉬 요청
+	Server_SendDash();
+}
 
 /* ===================== Server RPC ===================== */
 
@@ -440,6 +452,16 @@ void AMainPlayerController::Server_SendSprint_Implementation(bool bSprinting)
 
 	TargetSquirrel->SetSprinting_ServerAuth(bSprinting);
 }
+
+void AMainPlayerController::Server_SendDash_Implementation()
+{
+	// 서버에서도 역할 체크
+	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+		return;
+
+	TargetSquirrel->RequestDash_ServerAuth(); // 아래 2)에서 구현
+}
+
 /* ===================== Replication ===================== */
 
 void AMainPlayerController::GetLifetimeReplicatedProps(

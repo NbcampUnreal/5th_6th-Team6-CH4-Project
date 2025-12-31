@@ -72,82 +72,55 @@ void AALCGunBase::GetMuzzleTransform(const FRotator& AimRot, FVector& OutLoc, FR
 
 //서버에서만 실행되는 로직 , 스폰 , 쿨타임 , 속도 등 핵심 
 void AALCGunBase::HandleFire(const FRotator& AimRot)
-{	
-
-    // 서버에서만 총알 스폰
-    if (!HasAuthority())
-        return;
-
+{
     UWorld* World = GetWorld();
-    if (!World)
-        return;
-
-    if (!ProjectileClass)
+    if (!World || !ProjectileClass)
     {
-        UE_LOG(LogTemp, Warning, TEXT("[Gun] ProjectileClass is NULL (%s)"), *GetName());
+        UE_LOG(LogTemp, Error, TEXT("[Gun] INVALID World or ProjectileClass"));
         return;
     }
 
     APawn* OwnerPawn = Cast<APawn>(GetOwner());
     if (!OwnerPawn)
     {
-        UE_LOG(LogTemp, Warning, TEXT("[Gun] OwnerPawn is NULL. Did you SetOwner(Squirrel) on pickup? Gun=%s"), *GetName());
+        UE_LOG(LogTemp, Error, TEXT("[Gun] No OwnerPawn"));
         return;
     }
-
-    // 쿨타임
-    const float Now = World->GetTimeSeconds();
-    if (Now - LastFireTime < FireCooldown)
-        return;
-    LastFireTime = Now;
-
-    if (AimRot.ContainsNaN())
-        return;
 
     const FVector ShootDir = AimRot.Vector();
-    if (ShootDir.ContainsNaN() || ShootDir.IsNearlyZero())
-        return;
 
-    // 스폰 트랜스폼
-    FVector SpawnLoc;
-    FRotator SpawnRot;
-    bool bUsedSocket = false;
-    GetMuzzleTransform(AimRot, SpawnLoc, SpawnRot, bUsedSocket);
+    const FVector SpawnLoc =
+        OwnerPawn->GetActorLocation()
+        + ShootDir * 100.f
+        + FVector(0.f, 0.f, 50.f);
 
-    // Spawn
-    FActorSpawnParameters SpawnParams;
-    SpawnParams.Owner = OwnerPawn;
-    SpawnParams.Instigator = OwnerPawn;
-    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    FActorSpawnParameters Params;
+    Params.Owner = OwnerPawn;
+    Params.Instigator = OwnerPawn;
+    Params.SpawnCollisionHandlingOverride =
+        ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-    AALCProjectileBase* Bullet = World->SpawnActor<AALCProjectileBase>(
+    AALCProjectileBase* Proj = World->SpawnActor<AALCProjectileBase>(
         ProjectileClass,
         SpawnLoc,
-        SpawnRot,
-        SpawnParams
+        AimRot,
+        Params
     );
 
-    if (Bullet)
+    if (!Proj)
     {
-        Bullet->Init(Damage, ShootDir, BulletSpeed);
-
-        // (선택) 스폰 직후 오너랑 겹쳐서 즉시 OnHit/Destroy 되는 것 방지
-        if (UPrimitiveComponent* RootPrim = Cast<UPrimitiveComponent>(Bullet->GetRootComponent()))
-        {
-            RootPrim->IgnoreActorWhenMoving(OwnerPawn, true);
-        }
+        UE_LOG(LogTemp, Error,
+            TEXT("[Gun] Spawn projectile FAILED. ProjClass=%s Owner=%s"),
+            *GetNameSafe(ProjectileClass),
+            *GetNameSafe(OwnerPawn));
+        return;
     }
 
-    UE_LOG(LogTemp, Warning,
-        TEXT("[Gun] Fire UsedSocket=%d Socket=%s SpawnLoc=%s Rot=%s Owner=%s GunMesh=%s StaticMesh=%s"),
-        bUsedSocket ? 1 : 0,
-        *MuzzleSocketName.ToString(),
-        *SpawnLoc.ToString(),
-        *SpawnRot.ToString(),
-        *GetNameSafe(OwnerPawn),
-        *GetNameSafe(GunMesh),
-        *GetNameSafe(GunMesh ? GunMesh->GetStaticMesh() : nullptr));
+    Proj->Init(Damage, ShootDir, BulletSpeed);
 }
+
+
+
    // UWorld* World = GetWorld();
    // if (!World || !ProjectileClass) { return; }
 

@@ -11,8 +11,9 @@ ABaseAIController::ABaseAIController()
     bReplicates = true;
 
     AIPerception = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("AIPerception"));
-    SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
 
+    // 1. 시각 설정 구성
+    SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
     if (SightConfig)
     {
         SightConfig->SightRadius = 1000.0f;
@@ -24,8 +25,24 @@ ABaseAIController::ABaseAIController()
         SightConfig->DetectionByAffiliation.bDetectFriendlies = true;
 
         AIPerception->ConfigureSense(*SightConfig);
-        AIPerception->SetDominantSense(SightConfig->GetSenseImplementation());
     }
+
+    // 2. 청각 설정 구성 
+    HearingConfig = CreateDefaultSubobject<UAISenseConfig_Hearing>(TEXT("HearingConfig"));
+    if (HearingConfig)
+    {
+        HearingConfig->HearingRange = 1200.0f;
+        HearingConfig->DetectionByAffiliation.bDetectEnemies = true;
+        HearingConfig->DetectionByAffiliation.bDetectNeutrals = true;
+        HearingConfig->DetectionByAffiliation.bDetectFriendlies = true;
+
+        AIPerception->ConfigureSense(*HearingConfig);
+    }
+
+    if (SightConfig)
+        {
+        AIPerception->SetDominantSense(SightConfig->GetSenseImplementation());
+	    }
 }
 
 void ABaseAIController::OnPossess(APawn* InPawn)
@@ -50,32 +67,37 @@ void ABaseAIController::OnPossess(APawn* InPawn)
 
 void ABaseAIController::OnTargetDetected(AActor* Actor, FAIStimulus Stimulus)
 {
+    UE_LOG(LogTemp, Warning, TEXT("Something Detected! Type: %s"), *Stimulus.Type.Name.ToString());
     if (!HasAuthority()) return;
-
-    // 조종 중인 캐릭터가 죽었는지 확인
-    ABaseAICharacter* MyCharacter = Cast<ABaseAICharacter>(GetPawn());
-    if (!MyCharacter || MyCharacter->IsDead()) return;
-
     UBlackboardComponent* BBComp = GetBlackboardComponent();
     if (!BBComp) return;
 
     if (Stimulus.WasSuccessfullySensed())
     {
-        // 플레이어 태그가 있는 액터만 타겟으로 지정
-        if (Actor && Actor->ActorHasTag(TEXT("Player")))
+        // 시각: 공격 대상을 직접 지정
+        if (Stimulus.Type == UAISense::GetSenseID<UAISense_Sight>())
         {
-            BBComp->SetValueAsObject(TargetActorKeyName, Actor);
-            UE_LOG(LogTemp, Warning, TEXT("[Server] Found Player: %s"), *Actor->GetName());
+            if (Actor && Actor->ActorHasTag(TEXT("Player")))
+            {
+                BBComp->SetValueAsObject(TargetActorKeyName, Actor);
+                BBComp->ClearValue(TEXT("TargetLocation")); // 타겟을 봤으니 소리 위치는 무시
+            }
+        }
+        // 청각: 조사할 위치만 지정 (TargetActor는 건드리지 않음!)
+        else if (Stimulus.Type == UAISense::GetSenseID<UAISense_Hearing>())
+        {
+            // 이미 눈앞에 적이 있는 상태라면 소리 무시
+            if (BBComp->GetValueAsObject(TargetActorKeyName) == nullptr)
+            {
+                BBComp->SetValueAsVector(TEXT("TargetLocation"), Stimulus.StimulusLocation);
+            }
         }
     }
-    else
+    else // 시야에서 사라졌을 때
     {
-        // 현재 타겟을 놓쳤을 때만 블랙보드 비우기
-        AActor* CurrentTarget = Cast<AActor>(BBComp->GetValueAsObject(TargetActorKeyName));
-        if (CurrentTarget == Actor)
+        if (Stimulus.Type == UAISense::GetSenseID<UAISense_Sight>())
         {
             BBComp->ClearValue(TargetActorKeyName);
-            UE_LOG(LogTemp, Display, TEXT("[Server] Lost Target: %s"), *Actor->GetName());
         }
     }
 }

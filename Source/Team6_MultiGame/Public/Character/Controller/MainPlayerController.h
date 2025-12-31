@@ -64,6 +64,9 @@ protected:
 
 	void OnSprintStarted(const FInputActionValue& Value);
 	void OnSprintCompleted(const FInputActionValue& Value);
+
+	// 입력 콜백
+	void OnDashStarted(const FInputActionValue& Value);
 	/* ===================== Server RPC ===================== */
 	UFUNCTION(Server, Reliable)
 	void Server_SendMove(const FVector2D& MoveInput);
@@ -79,6 +82,10 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void Server_SendSprint(bool bSprinting);
+
+	UFUNCTION(Server, Reliable)
+	void Server_SendDash();
+
 
 public:
 	/* ===================== Input Assets ===================== */
@@ -107,6 +114,8 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	UInputAction* IA_Sprint = nullptr;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UInputAction* IA_Dash;
 protected:
 	/* ===================== Replication ===================== */
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;

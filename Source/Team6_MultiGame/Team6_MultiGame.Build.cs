@@ -18,7 +18,8 @@ public class Team6_MultiGame : ModuleRules
             "NavigationSystem",
             "AIModule",
             "GameplayTasks",
-            "UMG"
+            "UMG",
+            "Niagara"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[] { });
