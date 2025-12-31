@@ -73,8 +73,8 @@ static bool RebuildVoiceCredsJson(const FString& InJson, FString& OutJson)
     UE_LOG(LogTemp, Warning, TEXT("[VoiceToken] OverrideUserId=%s"), *FullId);
 
     TSharedRef<FJsonObject> Clean = MakeShared<FJsonObject>();
-    Clean->SetStringField(TEXT("ClientBaseUrl"), BaseUrlToUse);
-    Clean->SetStringField(TEXT("ParticipantToken"), ParticipantToken);
+    Clean->SetStringField(TEXT("clientBaseUrl"), BaseUrlToUse);
+    Clean->SetStringField(TEXT("participantToken"), ParticipantToken);
 
     if (!FullId.IsEmpty())
     {
@@ -276,6 +276,8 @@ void UVoiceLobbySubsystem::JoinVoiceChannel(const FString& ChannelName, const FS
     EnsureVoiceConnected();
     EnsureVoiceLoggedIn(TEXT(""), TEXT(""));
 
+
+
     FString CleanCreds;
     if (!RebuildVoiceCredsJson(ChannelCredentialsJson, CleanCreds))
     {
@@ -285,6 +287,10 @@ void UVoiceLobbySubsystem::JoinVoiceChannel(const FString& ChannelName, const FS
 
     UE_LOG(LogTemp, Warning, TEXT("[VoiceToken] CleanCreds len=%d head=%s"),
         CleanCreds.Len(), *CleanCreds.Left(200));
+
+    UE_LOG(LogTemp, Warning, TEXT("[Diag] Has clientBaseUrl=%d participantToken=%d"),
+        CleanCreds.Contains(TEXT("\"clientBaseUrl\"")) ? 1 : 0,
+        CleanCreds.Contains(TEXT("\"participantToken\"")) ? 1 : 0);
 
     {
         TSharedPtr<FJsonObject> Obj;

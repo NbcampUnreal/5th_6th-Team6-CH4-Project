@@ -357,7 +357,7 @@ void ALobbyPlayerController::Server_RequestVoiceJoinToken_Implementation(const F
                     );
 
                     const FString CredentialsJson = FString::Printf(
-                        TEXT("{\"ClientBaseUrl\":\"%s\",\"ParticipantToken\":\"%s\"}"),
+                        TEXT("{\"clientBaseUrl\":\"%s\",\"participantToken\":\"%s\"}"),
                         *ClientBaseUrl, *ParticipantToken
                     );
 
