@@ -93,7 +93,7 @@ void AAISpawnVolume::HandleAIDeath(AActor* DeadActor)
 			if (GM)
 			{
 				
-				GM->ClearGame(); // 게임모드에 모든 적이 죽었다고 알림
+				GM->EndGame(); // 게임모드에 모든 적이 죽었다고 알림
 			}
 		}
 	}
