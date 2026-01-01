@@ -218,13 +218,13 @@ void ABaseAICharacter::FinishDying()
 
 void ABaseAICharacter::TriggerDissolveEffect()
 {
-    // 1. 중복 실행 방지 및 유효성 검사
+    
     if (DynamicDissolveMaterial || !DissolveMasterMaterial) return;
 
     USkeletalMeshComponent* MeshComp = GetMesh();
     if (!MeshComp) return;
 
-    // 2. 애니메이션 확실히 멈추기 (박제)
+   
     MeshComp->SetPlayRate(0.0f); // 재생 속도 0
     UAnimInstance* AnimInst = MeshComp->GetAnimInstance();
     if (AnimInst)
@@ -232,10 +232,10 @@ void ABaseAICharacter::TriggerDissolveEffect()
         AnimInst->Montage_Pause(nullptr); // 현재 재생 중인 모든 몽타주 일시정지
     }
 
-    // 포즈 업데이트 중단 (이걸 해야 완전히 박제됨)
+  
     MeshComp->bNoSkeletonUpdate = true;
 
-    // 3. 디졸브 머티리얼 생성 및 적용 (슬롯 0번 고정)
+
     DynamicDissolveMaterial = MeshComp->CreateDynamicMaterialInstance(0, DissolveMasterMaterial);
 
     if (DynamicDissolveMaterial)
