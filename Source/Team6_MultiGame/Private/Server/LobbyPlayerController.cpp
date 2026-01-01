@@ -33,13 +33,11 @@ void ALobbyPlayerController::BeginPlay()
         {
             LobbyWidgetInstance->AddToViewport();
 
-            // UIOnly + Mouse cursor (포커스 강제 지정하면 Non-Focusable 경고가 날 수 있어 생략)
             FInputModeUIOnly Mode;
             SetInputMode(Mode);
             bShowMouseCursor = true;
         }
     }
-    // === Voice Lobby init (Leader creates, others find/join) ===
     TryInitVoiceLobby();
 
     if (UWorld* World = GetWorld())
@@ -56,7 +54,6 @@ void ALobbyPlayerController::BeginPlay()
 
 static FString ExtractIpOnly(const FString& InAddr)
 {
-    // "1.2.3.4:5678" or "[::1]:1234" 형태에서 IP만 대충 뽑기
     FString S = InAddr;
     S.ReplaceInline(TEXT("["), TEXT(""));
     S.ReplaceInline(TEXT("]"), TEXT(""));
@@ -79,16 +76,21 @@ static bool GetTeam6VoiceServerCreds(FString& OutDeploymentId, FString& OutClien
 
 static FString GetRequesterPuidFromPlayerState(APlayerState* PS)
 {
-    if (!PS) return TEXT("");
-    const FUniqueNetIdRepl& Repl = PS->GetUniqueId();
-    if (!Repl.IsValid()) return TEXT("");
+    if (!PS)
+    {
+        return TEXT("");
+    }
 
-    FString IdStr = Repl->ToString(); // 예: "EOS:EpicAccountId|ProductUserId" 등
+    const FUniqueNetIdRepl& Repl = PS->GetUniqueId();
+    if (!Repl.IsValid())
+    {
+        return TEXT("");
+    }
+
+    FString IdStr = Repl->ToString();
     FString Puid = IdStr;
 
-    // EOSPlus면 "EpicAccountId|ProductUserId"처럼 붙는 경우가 있어 뒤를 PUID로 간주
     IdStr.Split(TEXT("|"), nullptr, &Puid);
-    // "EOS:" prefix가 남으면 제거 시도
     Puid.ReplaceInline(TEXT("EOS:"), TEXT(""));
     return Puid;
 }
@@ -111,7 +113,6 @@ void ALobbyPlayerController::TryInitVoiceLobby()
         return;
     }
 
-    // 로그인 완료 전에는 VoiceChat Login 불가(너 프로젝트 흐름 기준)
     if (ULoginSubsystem* LoginSS = GI->GetSubsystem<ULoginSubsystem>())
     {
         if (!LoginSS->IsLoggedIn())
@@ -122,7 +123,10 @@ void ALobbyPlayerController::TryInitVoiceLobby()
     }
 
     ALobbyPlayerState* PS = GetPlayerState<ALobbyPlayerState>();
-    if (!PS) return;
+    if (!PS)
+    {
+        return;
+    }
 
     const FString& RoomId = PS->GetVoiceRoomId();
     if (RoomId.IsEmpty())
@@ -131,13 +135,13 @@ void ALobbyPlayerController::TryInitVoiceLobby()
         return;
     }
 
-    // 1) VoiceChat 연결/로그인 준비
+    //  VoiceChat 연결/로그인 준비
     if (UVoiceLobbySubsystem* VoiceSS = GI->GetSubsystem<UVoiceLobbySubsystem>())
     {
-        VoiceSS->EnsureVoiceReady(); // 아래에서 만들어줄 함수(Initialize/Connect/CreateUser 등)
+        VoiceSS->EnsureVoiceReady();
     }
 
-    // 2) 토큰 요청 (Trusted Server 방식 자리)
+    //  토큰 요청 (Trusted Server 방식 자리)
     Server_RequestVoiceJoinToken(RoomId);
 }
 
@@ -168,7 +172,10 @@ void ALobbyPlayerController::ToggleReady()
 void ALobbyPlayerController::Server_RequestVoiceJoinToken_Implementation(const FString& InRoomId)
 {
     if (!HasAuthority())
+    {
         return;
+
+    }
 
     FString DeploymentId, ClientId, ClientSecret;
     if (!GetTeam6VoiceServerCreds(DeploymentId, ClientId, ClientSecret))
@@ -192,11 +199,9 @@ void ALobbyPlayerController::Server_RequestVoiceJoinToken_Implementation(const F
         ClientIp = ExtractIpOnly(Conn->LowLevelGetRemoteAddress(true));
     }
 
-    //  (서버) 토큰 발급 요청 보내기 직전
     UE_LOG(LogTemp, Warning, TEXT("[DiagServer] IssueVoiceToken TargetPUID=%s Room=%s ClientIp=%s DeploymentId=%s"),
         *Puid, *InRoomId, *ClientIp, *DeploymentId);
 
-    // 1) OAuth access token (client_credentials)
     const FString Basic = FBase64::Encode(ClientId + TEXT(":") + ClientSecret);
 
     TSharedRef<IHttpRequest, ESPMode::ThreadSafe> TokenReq = FHttpModule::Get().CreateRequest();
@@ -213,12 +218,14 @@ void ALobbyPlayerController::Server_RequestVoiceJoinToken_Implementation(const F
     TokenReq->OnProcessRequestComplete().BindLambda(
         [WeakThis, InRoomId, DeploymentId, Puid, ClientIp](FHttpRequestPtr Req, FHttpResponsePtr Resp, bool bOk)
         {
-            if (!WeakThis.IsValid()) return;
+            if (!WeakThis.IsValid())
+            {
+                return;
+            }
 
             const int32 Code = Resp.IsValid() ? Resp->GetResponseCode() : -1;
             const FString RespStr = Resp.IsValid() ? Resp->GetContentAsString() : TEXT("<no response>");
 
-            //  OAuth 응답 받은 직후
             UE_LOG(LogTemp, Warning, TEXT("[DiagServer] VoiceToken(OAuth) bWasSuccessful=%d HTTP=%d"),
                 bOk ? 1 : 0, Code);
             UE_LOG(LogTemp, Warning, TEXT("[DiagServer] VoiceToken(OAuth) RESP=%s"),
@@ -255,7 +262,6 @@ void ALobbyPlayerController::Server_RequestVoiceJoinToken_Implementation(const F
                 return;
             }
 
-            // 2) createRoomToken (Voice Web API / RTC)
             TSharedRef<IHttpRequest, ESPMode::ThreadSafe> VoiceReq = FHttpModule::Get().CreateRequest();
             VoiceReq->SetURL(FString::Printf(TEXT("https://api.epicgames.dev/rtc/v1/%s/room/%s"), *DeploymentId, *InRoomId));
             VoiceReq->SetVerb(TEXT("POST"));
@@ -271,12 +277,14 @@ void ALobbyPlayerController::Server_RequestVoiceJoinToken_Implementation(const F
             VoiceReq->OnProcessRequestComplete().BindLambda(
                 [WeakThis, InRoomId, Puid, DeploymentId](FHttpRequestPtr Req2, FHttpResponsePtr Resp2, bool bOk2)
                 {
-                    if (!WeakThis.IsValid()) return;
+                    if (!WeakThis.IsValid())
+                    {
+                        return;
+                    }
 
                     const int32 Code2 = Resp2.IsValid() ? Resp2->GetResponseCode() : -1;
                     const FString RespStr2 = Resp2.IsValid() ? Resp2->GetContentAsString() : TEXT("<no response>");
 
-                    //  createRoomToken 응답 받은 직후
                     UE_LOG(LogTemp, Warning, TEXT("[DiagServer] VoiceToken(Room) bWasSuccessful=%d HTTP=%d"),
                         bOk2 ? 1 : 0, Code2);
                     UE_LOG(LogTemp, Warning, TEXT("[DiagServer] VoiceToken(Room) RESP=%s"),
@@ -296,27 +304,26 @@ void ALobbyPlayerController::Server_RequestVoiceJoinToken_Implementation(const F
                     FString ClientBaseUrl;
                     FString ParticipantToken;
 
-                    // 응답 형태는 버전에 따라 다를 수 있어서 여러 케이스 흡수
                     TSharedPtr<FJsonObject> Json;
                     const TSharedRef<TJsonReader<>> Reader2 = TJsonReaderFactory<>::Create(RespStr2);
                     if (FJsonSerializer::Deserialize(Reader2, Json) && Json.IsValid())
                     {
-                        // (A) 최상위 필드 케이스: clientBaseUrl / participantToken (주로 소문자)
                         Json->TryGetStringField(TEXT("clientBaseUrl"), ClientBaseUrl);
                         Json->TryGetStringField(TEXT("participantToken"), ParticipantToken);
 
-                        // (B) 혹시 대문자 케이스도 같이
                         if (ClientBaseUrl.IsEmpty()) Json->TryGetStringField(TEXT("ClientBaseUrl"), ClientBaseUrl);
                         if (ParticipantToken.IsEmpty()) Json->TryGetStringField(TEXT("ParticipantToken"), ParticipantToken);
 
-                        // (C) participants 배열 케이스
                         if (ParticipantToken.IsEmpty() && Json->HasTypedField<EJson::Array>(TEXT("participants")))
                         {
                             const TArray<TSharedPtr<FJsonValue>> Arr = Json->GetArrayField(TEXT("participants"));
                             for (const TSharedPtr<FJsonValue>& V : Arr)
                             {
                                 const TSharedPtr<FJsonObject> O = V.IsValid() ? V->AsObject() : nullptr;
-                                if (!O.IsValid()) continue;
+                                if (!O.IsValid())
+                                {
+                                    continue;
+                                }
 
                                 FString ThisPuid;
                                 O->TryGetStringField(TEXT("puid"), ThisPuid);
@@ -331,7 +338,6 @@ void ALobbyPlayerController::Server_RequestVoiceJoinToken_Implementation(const F
                             }
                         }
 
-                        // (D) ClientBaseUrl도 participants나 다른 키에 들어있는 변종 대비
                         if (ClientBaseUrl.IsEmpty())
                         {
                             Json->TryGetStringField(TEXT("clientBaseURL"), ClientBaseUrl);
@@ -347,11 +353,10 @@ void ALobbyPlayerController::Server_RequestVoiceJoinToken_Implementation(const F
                         return;
                     }
 
-                    //  (서버) 여기서 클라로 내려줄 creds 만들기 직전/직후 로그
                     UE_LOG(LogTemp, Warning, TEXT("[DiagServer] SendCreds TargetPUID=%s Room=%s CredsLen=%d BaseUrl=%s TokenLen=%d"),
                         *Puid,
                         *InRoomId,
-                        0, // 아직 만들기 전이라 0 (아래에서 실제 길이로 다시 찍음)
+                        0,
                         *ClientBaseUrl,
                         ParticipantToken.Len()
                     );
@@ -389,7 +394,10 @@ void ALobbyPlayerController::Server_RequestVoiceJoinToken_Implementation(const F
 
 void ALobbyPlayerController::Client_ReceiveVoiceJoinToken_Implementation(const FString& InRoomId, const FString& InToken)
 {
-    if (!IsLocalController()) return;
+    if (!IsLocalController())
+    {
+        return;
+    }
 
     if (UGameInstance* GI = GetGameInstance())
     {

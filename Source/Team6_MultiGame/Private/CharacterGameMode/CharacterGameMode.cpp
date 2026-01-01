@@ -7,6 +7,9 @@
 #include "Character/Squirrel.h"
 #include "EngineUtils.h"             // TActorIterator
 
+#include "CharacterGameMode/CharacterGameState.h"
+
+
 ACharacterGameMode::ACharacterGameMode()
 {
     DefaultPawnClass = nullptr;
@@ -28,7 +31,7 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
         PC->GetPawn() ? TEXT("HasPawn") : TEXT("NoPawn")
     );
 
-    // ´Ù¶÷Áã Ã£±â (Ä³½Ì)
+    // ï¿½Ù¶ï¿½ï¿½ï¿½ Ã£ï¿½ï¿½ (Ä³ï¿½ï¿½)
     if (!TargetSquirrel)
     {
         for (TActorIterator<ASquirrel> It(GetWorld()); It; ++It)
@@ -43,14 +46,14 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
 
     }
 
-    // ´Ù¶÷Áã ÀÖÀ¸¸é Ä«¸Þ¶ó °¡Á®¿Í¼­ ¼³Á¤
+    // ï¿½Ù¶ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ä«ï¿½Þ¶ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ ï¿½ï¿½ï¿½ï¿½
     if (!TargetSquirrel)
     {
         UE_LOG(LogTemp, Error, TEXT("GameMode: TargetSquirrel not found"));
         return;
     }
 
-    // ¿ªÇÒ ÇÒ´ç
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½Ò´ï¿½
     if (PlayerIndex == 0)
     {
         PC->SetRole(EPlayerRole::Camera);
@@ -66,14 +69,47 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
 
 
     /* =========================
-     * PlayerController¿¡ Àü´Þ
+     * PlayerControllerï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
      * ========================= */
     PC->SetTargetSquirrel(TargetSquirrel);
 
     PlayerIndex++;
 }
 
+/////////////////////////////////////////////////   ï¿½ï¿½ï¿½ï¿½   /////////////////////////////////////////////////
+void ACharacterGameMode::ClearGame()
+{
+    bool bClear = true;
 
+    if (ACharacterGameState* GS = GetGameState<ACharacterGameState>())
+    {
+        GS->GmaeClear = true;  //Å¬ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½
+    }
+    GameOver(bClear);
+}
+
+void ACharacterGameMode::EndGame()
+{
+    bool bClear = false;
+
+    if (ACharacterGameState* GS = GetGameState<ACharacterGameState>())
+    {
+        GS->GmaeClear = false;  //Å¬ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+    }
+    GameOver(bClear);
+}
+
+void ACharacterGameMode::GameOver(bool bClear)
+{
+    for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+    {
+        if (AMainPlayerController* PC = Cast<AMainPlayerController>(It->Get()))
+        {
+            PC->Client_ShowResult(true, bClear);
+        }
+    }
+}
+/////////////////////////////////////////////////   ï¿½ï¿½ï¿½ï¿½   /////////////////////////////////////////////////
 
 void ACharacterGameMode::Logout(AController* Exiting)
 {
