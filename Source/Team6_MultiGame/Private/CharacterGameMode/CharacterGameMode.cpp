@@ -31,7 +31,7 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
         PC->GetPawn() ? TEXT("HasPawn") : TEXT("NoPawn")
     );
 
-    // ´Ù¶÷Áã Ã£±â (Ä³½Ì)
+    // ï¿½Ù¶ï¿½ï¿½ï¿½ Ã£ï¿½ï¿½ (Ä³ï¿½ï¿½)
     if (!TargetSquirrel)
     {
         for (TActorIterator<ASquirrel> It(GetWorld()); It; ++It)
@@ -46,14 +46,14 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
 
     }
 
-    // ´Ù¶÷Áã ÀÖÀ¸¸é Ä«¸Þ¶ó °¡Á®¿Í¼­ ¼³Á¤
+    // ï¿½Ù¶ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ä«ï¿½Þ¶ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ ï¿½ï¿½ï¿½ï¿½
     if (!TargetSquirrel)
     {
         UE_LOG(LogTemp, Error, TEXT("GameMode: TargetSquirrel not found"));
         return;
     }
 
-    // ¿ªÇÒ ÇÒ´ç
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½Ò´ï¿½
     if (PlayerIndex == 0)
     {
         PC->SetRole(EPlayerRole::Camera);
@@ -69,21 +69,21 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
 
 
     /* =========================
-     * PlayerController¿¡ Àü´Þ
+     * PlayerControllerï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
      * ========================= */
     PC->SetTargetSquirrel(TargetSquirrel);
 
     PlayerIndex++;
 }
 
-/////////////////////////////////////////////////   ¼öÁ¤   /////////////////////////////////////////////////
-void ACharacterGameMode::ClearGmae()
+/////////////////////////////////////////////////   ï¿½ï¿½ï¿½ï¿½   /////////////////////////////////////////////////
+void ACharacterGameMode::ClearGame()
 {
     bool bClear = true;
 
     if (ACharacterGameState* GS = GetGameState<ACharacterGameState>())
     {
-        GS->GmaeClear = true;  //Å¬¸®¾î ÇÔ
+        GS->GmaeClear = true;  //Å¬ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½
     }
     GameOver(bClear);
 }
@@ -94,7 +94,7 @@ void ACharacterGameMode::EndGame()
 
     if (ACharacterGameState* GS = GetGameState<ACharacterGameState>())
     {
-        GS->GmaeClear = false;  //Å¬¸®¾î ¸øÇÔ
+        GS->GmaeClear = false;  //Å¬ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     }
     GameOver(bClear);
 }
@@ -109,7 +109,7 @@ void ACharacterGameMode::GameOver(bool bClear)
         }
     }
 }
-/////////////////////////////////////////////////   ¼öÁ¤   /////////////////////////////////////////////////
+/////////////////////////////////////////////////   ï¿½ï¿½ï¿½ï¿½   /////////////////////////////////////////////////
 
 
 
