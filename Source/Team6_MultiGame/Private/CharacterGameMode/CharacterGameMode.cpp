@@ -111,6 +111,20 @@ void ACharacterGameMode::GameOver(bool bClear)
 }
 /////////////////////////////////////////////////   ï¿½ï¿½ï¿½ï¿½   /////////////////////////////////////////////////
 
+void ACharacterGameMode::Logout(AController* Exiting)
+{
+    AMainPlayerController* PC = Cast<AMainPlayerController>(Exiting);
 
+    const TCHAR* RoleText = TEXT("Unknown");
+    if (PC)
+    {
+        // ¡Ú SetRole È£Ãâ ±ÝÁö! ±×³É ÇöÀç °ª ÀÐ±â
+        RoleText = (PC->PlayerRole == EPlayerRole::Camera) ? TEXT("Camera") : TEXT("Move");
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("[GM] Logout Role=%s"), RoleText);
+    EndGame();
+    Super::Logout(Exiting);
+}
 
 

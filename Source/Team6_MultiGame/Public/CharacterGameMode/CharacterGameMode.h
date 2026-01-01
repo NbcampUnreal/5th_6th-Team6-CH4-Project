@@ -24,12 +24,15 @@ public:
 
 	// ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ È£ï¿½ï¿½
 	virtual void PostLogin(APlayerController* NewPlayer) override;
+	virtual void Logout(AController* Exiting) override;   // ¡Ú Ãß°¡
+
 
 	/////////////////////////////////////////////////   ï¿½ï¿½ï¿½ï¿½   /////////////////////////////////////////////////
 	void ClearGame();
 	void EndGame();
 	void GameOver(bool bClear);
 	/////////////////////////////////////////////////   ï¿½ï¿½ï¿½ï¿½   /////////////////////////////////////////////////
+
 
 protected:
 	
