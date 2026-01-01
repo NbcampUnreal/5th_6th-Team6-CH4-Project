@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "TimerManager.h"
 #include "UW_LobbyLayout.generated.h"
 
 class UButton;
@@ -16,6 +17,8 @@ class TEAM6_MULTIGAME_API UUW_LobbyLayout : public UUserWidget
 protected:
 	virtual void NativeConstruct() override;
 
+	virtual void NativeDestruct() override;
+
 	UFUNCTION()
 	void ReadyButtonClicked();
 
@@ -27,4 +30,6 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> ReadyStateText;
+
+	FTimerHandle RefreshTimerHandle;
 };

@@ -2,28 +2,28 @@
 
 #include "KYG/ALCProjectileBase_Laser.h"
 #include "Kismet/GameplayStatics.h"
-#include "KYG/LCDamageable.h"
+//#include "KYG/LCDamageable.h"
 #include "DrawDebugHelpers.h" //디버그레이저
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraComponent.h"   
 #include "GameFramework/ProjectileMovementComponent.h" 
 #include "Components/SphereComponent.h"       
 
-//AALCProjectileBase_Laser::AALCProjectileBase_Laser()
-//{
-//    if (MovementComp)
-//    {//날아가는 발사체가 아니라서 이동은 쓰지 않게 설정.
-//        MovementComp->InitialSpeed = 0.f;
-//        MovementComp->MaxSpeed = 0.f;
-//        MovementComp->ProjectileGravityScale = 0.f;
-//        MovementComp->bAutoActivate = false;
-//    }
-//    //레이저는 오버렙충돌을 안 써도 됨.
-//    if (CollisionComp)
-//    {
-//        CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-//    }
-//}
+AALCProjectileBase_Laser::AALCProjectileBase_Laser()
+{
+    if (MovementComp)
+    {//날아가는 발사체가 아니라서 이동은 쓰지 않게 설정.
+        MovementComp->InitialSpeed = 0.f;
+        MovementComp->MaxSpeed = 0.f;
+        MovementComp->ProjectileGravityScale = 0.f;
+        MovementComp->bAutoActivate = false;
+    }
+    //레이저는 오버렙충돌을 안 써도 됨.
+    if (CollisionComp)
+    {
+        CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    }
+}
 
 void AALCProjectileBase_Laser::Init(float InDamage, FVector Direction, float Speed)
 {
@@ -47,6 +47,13 @@ void AALCProjectileBase_Laser::Init(float InDamage, FVector Direction, float Spe
     const FVector Dir = Direction.GetSafeNormal();	//방향
 	const FVector End = Start + Dir * MaxRange;	//최대 거리
 
+    //디버그 로그,  레이저 판정 방향
+    UE_LOG(LogTemp, Warning,
+        TEXT("[LASER Init] Dir=%s  Start=%s  MaxRange=%.1f"),
+        *Dir.ToString(),
+        *Start.ToString(),
+        MaxRange);
+
 	//라인트레잇 세팅
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(LaserTrace), false);
 	Params.AddIgnoredActor(this);                         // 자기 자신 무시
@@ -65,16 +72,18 @@ void AALCProjectileBase_Laser::Init(float InDamage, FVector Direction, float Spe
     {
         for (const FHitResult& HR : Hits)
         {
-            if (!HR.bBlockingHit) continue;
+            if (!HR.bBlockingHit) { continue; }
 
             const float Dist = (HR.ImpactPoint - Start).Size();
 
+            //태그로 막는 오브젝트
             if (bWorldStaticBlocksLaser &&
                 HR.GetActor() &&
                 HR.GetActor()->ActorHasTag(TEXT("LaserBlock")))
             {
                 MaxAllowedDist = FMath::Min(MaxAllowedDist, Dist);
             }
+            //월드 스태틱 충돌도 벽으로 취급
             else if (bWorldStaticBlocksLaser &&
                 HR.Component.IsValid() &&
                 HR.Component->GetCollisionObjectType() == ECC_WorldStatic)
@@ -104,22 +113,24 @@ void AALCProjectileBase_Laser::Init(float InDamage, FVector Direction, float Spe
         for (const FHitResult& HR : Hits)
         {
             AActor* Target = HR.GetActor();
-            if (!Target)
-            {
-                continue;
-            }
+            if (!Target || Target == this)
+            {continue;}
 
             const float Dist = (HR.ImpactPoint - Start).Size();
             if (Dist > MaxAllowedDist + 1.f)
             {
-                // 막히는 지점 뒤에 있는 애들은 무시
+                // 레이저가 막힌 지점 뒤에 있는 애들은 무시
                 continue;
             }
 
-            if (Target->GetClass()->ImplementsInterface(ULCDamageable::StaticClass()))
-            {
-                ILCDamageable::Execute_ReceiveDamage(Target, Damage, GetInstigator());
-            }
+            //여기서 엔진 Damage 시스템 사용
+            UGameplayStatics::ApplyDamage(
+                Target,
+                Damage,
+                GetInstigator() ? GetInstigator()->GetController() : nullptr,
+                this,                         // DamageCauser = 이 레이저 액터
+                UDamageType::StaticClass()
+            );
         }
     }
     // 모든 클라에 FX만 보여주기
@@ -138,61 +149,43 @@ void AALCProjectileBase_Laser::MulticastPlayLaserFX_Implementation(const FVector
     //    *End.ToString(),
     //    (int32)GetNetMode());
 
-    // 전용 서버 월드에서는 이펙트 안 뿌림
-    if (GetNetMode() == NM_DedicatedServer)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("[LaserFX] DedicatedServer → FX 생략"));
-        return;
-    }
-    if (!LaserVFX)
-    {
-        UE_LOG(LogTemp, Error, TEXT("[LaserFX] LaserVFX is NULL!"));
-        return;
-    }
+    if (GetNetMode() == NM_DedicatedServer || !LaserVFX)
+    { return; }
 
     UWorld* World = GetWorld();
-    if (!World) 
-    { 
-        UE_LOG(LogTemp, Error, TEXT("[LaserFX] World is NULL!"));
-        return;
-    }
+    if (!World) { return; }
 
-    // 시작 위치 확인용 디버그 스피어
-    //DrawDebugSphere(
-    //    World,
-    //    Start,
-    //    20.f,
-    //    12,
-    //    FColor::Green,
-    //    false,
-    //    1.5f
-    //);
+    const FVector Dir = (End - Start).GetSafeNormal();
+    const float Length = (End - Start).Size();
 
-    const FVector Dir = End - Start;
-    const FRotator Rot = Dir.Rotation();
-    const float Length = Dir.Size();
+    //FX에 넘기는 방향 길이
+    UE_LOG(LogTemp, Warning,
+        TEXT("[LASER FX] Dir=%s  Length=%.1f  Start=%s  End=%s"),
+        *Dir.ToString(),
+        Length,
+        *Start.ToString(),
+        *End.ToString());
+
+    // Dir 기준 회전
+    //FRotator Rot = Dir.Rotation();
+
+    const FRotator Rot = Dir.Rotation();  // Pitch -90도
 
     UNiagaraComponent* Comp =
         UNiagaraFunctionLibrary::SpawnSystemAtLocation(
             World,
             LaserVFX,
-            Start,
-            Rot,
-            FVector(1.f, 1.f, 1.f),
+            Start,   // 총구 위치
+            Rot,     // 보정된 회전
+            FVector(1.f),
             true,
             true
         );
 
     if (Comp)
     {
-        // 나이아가에서 쓸 길이 파라미터
         Comp->SetFloatParameter(TEXT("LaserLength"), Length);
-
-        //시스템이  끝나면 자동 삭제
+        Comp->SetVectorParameter(TEXT("LaserDir"), Dir);
         Comp->SetAutoDestroy(true);
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("[LaserFX] SpawnSystemAtLocation returned NULL"));
     }
 }

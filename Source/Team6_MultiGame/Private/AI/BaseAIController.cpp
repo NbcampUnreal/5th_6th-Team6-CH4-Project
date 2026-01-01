@@ -67,37 +67,43 @@ void ABaseAIController::OnPossess(APawn* InPawn)
 
 void ABaseAIController::OnTargetDetected(AActor* Actor, FAIStimulus Stimulus)
 {
-    UE_LOG(LogTemp, Warning, TEXT("Something Detected! Type: %s"), *Stimulus.Type.Name.ToString());
     if (!HasAuthority()) return;
     UBlackboardComponent* BBComp = GetBlackboardComponent();
     if (!BBComp) return;
 
     if (Stimulus.WasSuccessfullySensed())
     {
-        // 시각: 공격 대상을 직접 지정
+        // 1. 시각 감지
         if (Stimulus.Type == UAISense::GetSenseID<UAISense_Sight>())
         {
             if (Actor && Actor->ActorHasTag(TEXT("Player")))
             {
                 BBComp->SetValueAsObject(TargetActorKeyName, Actor);
-                BBComp->ClearValue(TEXT("TargetLocation")); // 타겟을 봤으니 소리 위치는 무시
+                SetFocus(Actor); // 플레이어 주시
+                UE_LOG(LogTemp, Warning, TEXT("Player Spotted! Focusing..."));
             }
         }
-        // 청각: 조사할 위치만 지정 (TargetActor는 건드리지 않음!)
+        // 2. 청각 감지
         else if (Stimulus.Type == UAISense::GetSenseID<UAISense_Hearing>())
         {
-            // 이미 눈앞에 적이 있는 상태라면 소리 무시
             if (BBComp->GetValueAsObject(TargetActorKeyName) == nullptr)
             {
                 BBComp->SetValueAsVector(TEXT("TargetLocation"), Stimulus.StimulusLocation);
             }
         }
     }
-    else // 시야에서 사라졌을 때
+    else
     {
+        // 시야에서 놓쳤을 때 바로 지우지 말고 "마지막 위치"로 기록
         if (Stimulus.Type == UAISense::GetSenseID<UAISense_Sight>())
         {
-            BBComp->ClearValue(TargetActorKeyName);
+            ClearFocus(EAIFocusPriority::Gameplay);
+
+           
+            BBComp->SetValueAsVector(TEXT("TargetLocation"), Actor->GetActorLocation());
+
+      
+            // BBComp->ClearValue(TargetActorKeyName); 
         }
     }
 }

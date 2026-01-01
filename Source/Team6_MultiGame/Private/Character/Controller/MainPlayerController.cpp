@@ -7,6 +7,8 @@
 #include "Net/UnrealNetwork.h"
 #include "Character/Squirrel.h"
 #include "UI/UIHUD.h"
+#include "UI/UW_Result.h"
+#include "CharacterGameMode/CharacterGameMode.h"
 
 
 
@@ -37,7 +39,10 @@ void AMainPlayerController::BeginPlay()
 		UE_LOG(LogTemp, Warning,
 			TEXT("[BeginPlay][LOCAL] Controller=%s Role(Init)=%s"),
 			*GetName(),
-			PlayerRole == EPlayerRole::Camera ? TEXT("Camera") : TEXT("Move"));
+			(PlayerRole == EPlayerRole::Camera) ? TEXT("Camera")
+			: (PlayerRole == EPlayerRole::Move1) ? TEXT("Move1")
+			: (PlayerRole == EPlayerRole::Move2) ? TEXT("Move2")
+			: TEXT("Unknown"));
 	}
 
 	if (ULocalPlayer* LP = GetLocalPlayer())
@@ -174,8 +179,10 @@ void AMainPlayerController::SetRole(EPlayerRole NewRole)
 	UE_LOG(LogTemp, Warning,
 		TEXT("[Server][SetRole] %s assigned Role=%s"),
 		*GetName(),
-		PlayerRole == EPlayerRole::Camera ? TEXT("Camera") : TEXT("Move"));
-	
+		(PlayerRole == EPlayerRole::Camera) ? TEXT("Camera")
+		: (PlayerRole == EPlayerRole::Move1) ? TEXT("Move1")
+		: (PlayerRole == EPlayerRole::Move2) ? TEXT("Move2")
+		: TEXT("Unknown"));
 	
 }
 
@@ -186,7 +193,10 @@ void AMainPlayerController::OnRep_PlayerRole()
 		UE_LOG(LogTemp, Warning,
 			TEXT("[Client][OnRep_PlayerRole] %s Role=%s"),
 			*GetName(),
-			PlayerRole == EPlayerRole::Camera ? TEXT("Camera") : TEXT("Move"));
+			(PlayerRole == EPlayerRole::Camera) ? TEXT("Camera")
+			: (PlayerRole == EPlayerRole::Move1) ? TEXT("Move1")
+			: (PlayerRole == EPlayerRole::Move2) ? TEXT("Move2")
+			: TEXT("Unknown"));
 	}
 	
 	ApplyPlayerRole();
@@ -225,7 +235,12 @@ void AMainPlayerController::ApplyPlayerRole()
 	if (!TargetSquirrel)
 	{
 		UE_LOG(LogTemp, Warning,
-			TEXT("[ApplyRole] TargetSquirrel not valid yet"));
+			TEXT("[ApplyRole] ViewTarget set to %s | Role=%s"),
+			*TargetSquirrel->GetName(),
+			(PlayerRole == EPlayerRole::Camera) ? TEXT("Camera")
+			: (PlayerRole == EPlayerRole::Move1) ? TEXT("Move1")
+			: (PlayerRole == EPlayerRole::Move2) ? TEXT("Move2")
+			: TEXT("Unknown"));
 		return;
 	}
 
@@ -239,29 +254,53 @@ void AMainPlayerController::ApplyPlayerRole()
 	UE_LOG(LogTemp, Warning,
 		TEXT("[ApplyRole] ViewTarget set to %s | Role=%s"),
 		*TargetSquirrel->GetName(),
-		PlayerRole == EPlayerRole::Camera ? TEXT("Camera") : TEXT("Move"));
+		(PlayerRole == EPlayerRole::Camera) ? TEXT("Camera")
+		: (PlayerRole == EPlayerRole::Move1) ? TEXT("Move1")
+		: (PlayerRole == EPlayerRole::Move2) ? TEXT("Move2")
+		: TEXT("Unknown"));
 }
 
 /* ===================== Input ===================== */
 
 void AMainPlayerController::OnMoveTriggered(const FInputActionValue& Value)
 {
-	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+	if (!TargetSquirrel)
 		return;
 
 	const FVector2D Move = Value.Get<FVector2D>();
-	if (Move.IsNearlyZero())
-		return;
 
-
-	Server_SendMove(Move);
-
-	if (UIHUD)
+	// ===== Move1: W/S만 (Y) =====
+	if (PlayerRole == EPlayerRole::Move1)
 	{
-		UIHUD->SetKeyPressed("W", Move.Y > 0.f);
-		UIHUD->SetKeyPressed("S", Move.Y < 0.f);
-		UIHUD->SetKeyPressed("D", Move.X > 0.f);
-		UIHUD->SetKeyPressed("A", Move.X < 0.f);
+		if (FMath::Abs(Move.Y) < 0.01f)
+			return;
+
+		Server_SendMove(FVector2D(0.f, Move.Y));
+
+		if (UIHUD)
+		{
+			UIHUD->SetKeyPressed("W", Move.Y > 0.f);
+			UIHUD->SetKeyPressed("S", Move.Y < 0.f);
+			// Move1은 A/D 표시 안 함
+		}
+		return;
+	}
+
+	// ===== Move2: A/D만 (X) =====
+	if (PlayerRole == EPlayerRole::Move2)
+	{
+		if (FMath::Abs(Move.X) < 0.01f)
+			return;
+
+		Server_SendMove(FVector2D(Move.X, 0.f));
+
+		if (UIHUD)
+		{
+			UIHUD->SetKeyPressed("D", Move.X > 0.f);
+			UIHUD->SetKeyPressed("A", Move.X < 0.f);
+			// Move2는 W/S 표시 안 함
+		}
+		return;
 	}
 }
 
@@ -363,7 +402,7 @@ void AMainPlayerController::OnFireStarted(const FInputActionValue& Value)
 
 void AMainPlayerController::OnJumpStarted(const FInputActionValue& Value)
 {
-	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+	if (PlayerRole != EPlayerRole::Move2 || !TargetSquirrel)
 		return;
 
 	Server_SendJump(true);
@@ -372,7 +411,7 @@ void AMainPlayerController::OnJumpStarted(const FInputActionValue& Value)
 
 void AMainPlayerController::OnJumpCompleted(const FInputActionValue& Value)
 {
-	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+	if (PlayerRole != EPlayerRole::Move2 || !TargetSquirrel)
 		return;
 
 	Server_SendJump(false);
@@ -381,7 +420,7 @@ void AMainPlayerController::OnJumpCompleted(const FInputActionValue& Value)
 
 void AMainPlayerController::OnSprintStarted(const FInputActionValue& Value)
 {
-	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+	if (PlayerRole != EPlayerRole::Move2 || !TargetSquirrel)
 		return;
 
 	Server_SendSprint(true);
@@ -391,7 +430,7 @@ void AMainPlayerController::OnSprintStarted(const FInputActionValue& Value)
 
 void AMainPlayerController::OnSprintCompleted(const FInputActionValue& Value)
 {
-	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+	if (PlayerRole != EPlayerRole::Move2 || !TargetSquirrel)
 		return;
 
 	Server_SendSprint(false);
@@ -400,7 +439,7 @@ void AMainPlayerController::OnSprintCompleted(const FInputActionValue& Value)
 
 void AMainPlayerController::OnDashStarted(const FInputActionValue& Value)
 {
-	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+	if (PlayerRole != EPlayerRole::Move2 || !TargetSquirrel)
 		return;
 
 	// 클라 -> 서버로 대쉬 요청
@@ -456,7 +495,7 @@ void AMainPlayerController::Server_SendSprint_Implementation(bool bSprinting)
 void AMainPlayerController::Server_SendDash_Implementation()
 {
 	// 서버에서도 역할 체크
-	if (PlayerRole != EPlayerRole::Move || !TargetSquirrel)
+	if (PlayerRole != EPlayerRole::Move2 || !TargetSquirrel)
 		return;
 
 	TargetSquirrel->RequestDash_ServerAuth(); // 아래 2)에서 구현
@@ -474,3 +513,58 @@ void AMainPlayerController::GetLifetimeReplicatedProps(
 	DOREPLIFETIME(AMainPlayerController, TargetSquirrel);
 
 }
+
+/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
+void AMainPlayerController::Client_ShowResult_Implementation(bool bIsRestart, bool bClear)
+{
+	ShowResult(bIsRestart, bClear);
+}
+
+void AMainPlayerController::ShowResult(bool bIsRestart, bool bClear)
+{
+	if (UIHUD)
+	{
+		UIHUD->RemoveFromParent();
+		UIHUD = nullptr;
+	}
+	
+	if (ResultWidget)
+	{
+		ResultWidget->RemoveFromParent();
+		ResultWidget = nullptr;
+	}
+
+	if (ResultWidgetClass)
+	{
+		UUW_Result* ResultUI = CreateWidget<UUW_Result>(this, ResultWidgetClass);
+		if (ResultUI)
+		{
+			ResultUI->AddToViewport();
+			SetInputMode(FInputModeUIOnly());
+			ResultUI->SetTitleText(bClear);
+			ResultWidget = ResultUI;
+
+			bShowMouseCursor = true;
+			bEnableClickEvents = true;
+			bEnableMouseOverEvents = true;
+
+			FInputModeGameAndUI Mode;
+			Mode.SetWidgetToFocus(ResultUI->TakeWidget());                 // 포커스 지정
+			Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);// 마우스 락 해제
+			Mode.SetHideCursorDuringCapture(false);                        // 캡처 중 커서 숨김 X
+			SetInputMode(Mode);
+
+			SetIgnoreMoveInput(true);
+			SetIgnoreLookInput(true);
+		}
+	}
+}
+
+void AMainPlayerController::Server_RequestReturnToLobby_Implementation()
+{
+	if (ACharacterGameMode* GM = GetWorld()->GetAuthGameMode<ACharacterGameMode>())
+	{
+		GM->ReturnToLobby();
+	}
+}
+/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////

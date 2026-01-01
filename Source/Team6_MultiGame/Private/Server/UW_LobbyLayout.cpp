@@ -15,9 +15,24 @@ void UUW_LobbyLayout::NativeConstruct()
 	if (ReadyButton)
 	{
 		ReadyButton->OnClicked.AddDynamic(this, &ThisClass::ReadyButtonClicked);
+		ReadyButton->SetIsEnabled(false);
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimer(RefreshTimerHandle, this, &ThisClass::RefreshReadyText, 0.1f, true);
 	}
 
 	RefreshReadyText();
+}
+
+void UUW_LobbyLayout::NativeDestruct()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(RefreshTimerHandle);
+	}
+	Super::NativeDestruct();
 }
 
 void UUW_LobbyLayout::ReadyButtonClicked()
@@ -40,7 +55,10 @@ void UUW_LobbyLayout::ReadyButtonClicked()
 
 void UUW_LobbyLayout::RefreshReadyText()
 {
-	if (!ReadyStateText) return;
+	if (!ReadyStateText)
+	{
+		return;
+	}
 
 
 	APlayerController* PC = GetOwningPlayer();
@@ -52,12 +70,16 @@ void UUW_LobbyLayout::RefreshReadyText()
 
 	if (const ALobbyPlayerState* PS = Cast<ALobbyPlayerState>(BasePS))
 	{
+		if (ReadyButton) ReadyButton->SetIsEnabled(true);
+
 		ReadyStateText->SetText(PS->bReady
 			? FText::FromString(TEXT("READY"))
 			: FText::FromString(TEXT("NOT READY")));
+
+		//GetWorld()->GetTimerManager().ClearTimer(RefreshTimerHandle);
 	}
 	else
 	{
-		ReadyStateText->SetText(FText::FromString(TEXT("NO PLAYERSTATE")));
+		ReadyStateText->SetText(FText::FromString(TEXT("SYNCING...")));
 	}
 }

@@ -12,12 +12,14 @@ class UInputMappingContext;
 class UInputAction;
 class ASquirrelAIController;
 class UUIHUD;
+class UUW_Result;
 
 UENUM(BlueprintType)
 enum class EPlayerRole : uint8
 {
-	Move ,
-	Camera  
+	Camera,
+	Move1,   // W/S
+	Move2    // A/D + Shift + Space
 };
 
 UCLASS()
@@ -32,14 +34,15 @@ public:
 	void SetRole(EPlayerRole NewRole);
 	void SetTargetSquirrel(ASquirrel* InSquirrel);
 
+	UPROPERTY(ReplicatedUsing = OnRep_PlayerRole)
+	EPlayerRole PlayerRole = EPlayerRole::Camera;
 protected:
 	/* ===================== Lifecycle ===================== */
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
 
 	/* ===================== Role ===================== */
-	UPROPERTY(ReplicatedUsing = OnRep_PlayerRole)
-	EPlayerRole PlayerRole = EPlayerRole::Move;
+
 
 	UFUNCTION()
 	void OnRep_PlayerRole();
@@ -142,4 +145,20 @@ public:
 
 	void UpdateHUD_HP(float CurHP, float MaxHP);
 
+	/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Result")
+	TSubclassOf<UUW_Result> ResultWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UUW_Result> ResultWidget;
+
+	UFUNCTION(Client, Reliable)
+	void Client_ShowResult(bool bIsRestart, bool bClear);
+
+	UFUNCTION(Server, Reliable)
+	void Server_RequestReturnToLobby();
+
+protected:
+	void ShowResult(bool bIsRestart, bool bClear);
+	/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
 };

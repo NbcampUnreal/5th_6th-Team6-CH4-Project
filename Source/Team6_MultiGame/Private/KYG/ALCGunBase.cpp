@@ -28,6 +28,23 @@ AALCGunBase::AALCGunBase()
 	BulletSpeed = 3000.f;
 	FireCooldown = 1.0f;
 	LastFireTime = -999.f;	//게임 시작 시 첫 발을 즉시 쏠 수있도록 발사 가능 상태로 만들기 위한 초기값
+
+    MaxAmmo = 20;   //일반총 기본값
+    CurrentAmmo = 0;
+}
+
+void AALCGunBase::BeginPlay()
+{
+    Super::BeginPlay();
+
+    if (HasAuthority())
+    {
+        CurrentAmmo = MaxAmmo;
+
+        UE_LOG(LogTemp, Warning,
+            TEXT("[Gun] BeginPlay Ammo = %d / %d (%s)"),
+            CurrentAmmo, MaxAmmo, *GetName());
+    }
 }
 
 //사격 함수
@@ -70,6 +87,13 @@ void AALCGunBase::GetMuzzleTransform(const FRotator& AimRot, FVector& OutLoc, FR
     bOutUsedSocket = true;
 }
 
+void AALCGunBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+    DOREPLIFETIME(AALCGunBase, CurrentAmmo);
+}
+
 //서버에서만 실행되는 로직 , 스폰 , 쿨타임 , 속도 등 핵심 
 void AALCGunBase::HandleFire(const FRotator& AimRot)
 {
@@ -87,12 +111,35 @@ void AALCGunBase::HandleFire(const FRotator& AimRot)
         return;
     }
 
-    const FVector ShootDir = AimRot.Vector();
+    const float Now = World->GetTimeSeconds();
+    if (Now - LastFireTime < FireCooldown)
+    {
+        // 필요하면 로그
+        // UE_LOG(LogTemp, Verbose, TEXT("[Gun] On cooldown. Remain=%.2f"), FireCooldown - (Now - LastFireTime));
+        return;
+    }
 
-    const FVector SpawnLoc =
-        OwnerPawn->GetActorLocation()
-        + ShootDir * 100.f
-        + FVector(0.f, 0.f, 50.f);
+    // 탄약 체크
+    if (CurrentAmmo <= 0)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Gun] No ammo left: %s"), *GetName());
+
+        // 탄 다 쓰면 총 자체를 없애서 손에서 사라지게
+        Destroy();
+        return;
+    }
+
+    // 총구 위치/회전 가져오기 (카메라 AimRot 기준으로 보정)
+    FVector MuzzleLoc;
+    FRotator MuzzleRot;
+    bool bUsedSocket = false;
+    GetMuzzleTransform(AimRot, MuzzleLoc, MuzzleRot, bUsedSocket);
+
+    // 실제 발사 방향 (카메라 조준 기준으로)
+    const FVector ShootDir = MuzzleRot.Vector();   // 또는 AimRot.Vector();
+
+    // 스폰 위치는 무조건 총구
+    const FVector SpawnLoc = MuzzleLoc;
 
     FActorSpawnParameters Params;
     Params.Owner = OwnerPawn;
@@ -100,10 +147,11 @@ void AALCGunBase::HandleFire(const FRotator& AimRot)
     Params.SpawnCollisionHandlingOverride =
         ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
+    // 발사체를 총구에서, 조준 방향으로 스폰
     AALCProjectileBase* Proj = World->SpawnActor<AALCProjectileBase>(
         ProjectileClass,
         SpawnLoc,
-        AimRot,
+        ShootDir.Rotation(),   // 또는 MuzzleRot
         Params
     );
 
@@ -116,7 +164,22 @@ void AALCGunBase::HandleFire(const FRotator& AimRot)
         return;
     }
 
+    // 발사체에 데미지/방향 넘기기
     Proj->Init(Damage, ShootDir, BulletSpeed);
+
+    // 탄 1발 소비 + 마지막 발사 시간 갱신
+    CurrentAmmo--;
+    LastFireTime = Now;
+
+    UE_LOG(LogTemp, Warning,
+        TEXT("[Gun] Fired. Ammo=%d/%d Cooldown=%.2f"),
+        CurrentAmmo, MaxAmmo, FireCooldown);
+
+    if (CurrentAmmo <= 0)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Gun] Ammo depleted -> Destroy %s"), *GetName());
+        Destroy();
+    }
 }
 
 

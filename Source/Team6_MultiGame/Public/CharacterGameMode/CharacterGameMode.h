@@ -22,12 +22,18 @@ public:
 	//virtual void BeginPlay() override;
 	
 
-	// 플레이어 접속 시 호출
 	virtual void PostLogin(APlayerController* NewPlayer) override;
+	virtual void Logout(AController* Exiting) override;   //  추가
+
+	void ClearGame();
+	void EndGame();
+	void GameOver(bool bClear);
+
+	UFUNCTION()
+	void ReturnToLobby();
 
 protected:
 	
-	// 레벨에 배치된 다람쥐
 	UPROPERTY()
 	ASquirrel* TargetSquirrel;
 
