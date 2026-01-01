@@ -9,6 +9,9 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Character/Controller/MainPlayerController.h"
 #include "CharacterGameMode/CharacterGameState.h"
+#include "Server/TitlePlayerController.h"
+#include "GameFramework/PlayerController.h"
+
 
 
 void UUW_Result::NativeConstruct()
@@ -26,11 +29,16 @@ void UUW_Result::NativeConstruct()
 	}
 }
 
+/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
 void UUW_Result::OnRestartClicked()
 {
-	FString CurrentLevel = UGameplayStatics::GetCurrentLevelName(this, true);
-	UGameplayStatics::OpenLevel(this, FName("/Game/Server/Maps/LobbyMap"));
+	if (AMainPlayerController* PC = GetOwningPlayer<AMainPlayerController>())
+	{
+		PC->SetPause(false);
+		PC->Server_RequestReturnToLobby(); // 서버에게 "로비로 보내줘" 요청
+	}
 }
+/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
 
 void UUW_Result::OnExitClicked()
 {

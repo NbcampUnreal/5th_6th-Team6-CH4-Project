@@ -26,12 +26,13 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
     if (!PC) return;
 
     UE_LOG(LogTemp, Warning,
-        TEXT("[GM] PostLogin PC=%s RoleBefore=%s"),
+        TEXT("[GM] PostLogin PC=%s Pawn=%s PlayerIndex=%d"),
         *PC->GetName(),
-        PC->GetPawn() ? TEXT("HasPawn") : TEXT("NoPawn")
+        PC->GetPawn() ? TEXT("HasPawn") : TEXT("NoPawn"),
+        PlayerIndex
     );
 
-    // ï¿½Ù¶ï¿½ï¿½ï¿½ Ã£ï¿½ï¿½ (Ä³ï¿½ï¿½)
+    // ===== TargetSquirrel Ä³½Ì(Ã³À½ 1È¸) =====
     if (!TargetSquirrel)
     {
         for (TActorIterator<ASquirrel> It(GetWorld()); It; ++It)
@@ -53,16 +54,18 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
         return;
     }
 
-    // ï¿½ï¿½ï¿½ï¿½ ï¿½Ò´ï¿½
+    // ===== ¿ªÇÒ ¹èÁ¤: Á¤È®È÷ 3¸í °íÁ¤ =====
     if (PlayerIndex == 0)
     {
         PC->SetRole(EPlayerRole::Camera);
-      
-
     }
-    else
+    else if (PlayerIndex == 1)
     {
-        PC->SetRole(EPlayerRole::Move);
+        PC->SetRole(EPlayerRole::Move1);
+    }
+    else // PlayerIndex == 2
+    {
+        PC->SetRole(EPlayerRole::Move2);
     }
 
     
@@ -73,17 +76,25 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
      * ========================= */
     PC->SetTargetSquirrel(TargetSquirrel);
 
+    UE_LOG(LogTemp, Warning,
+        TEXT("[GM] Assigned PC=%s Role=%s"),
+        *GetNameSafe(PC),
+        (PC->PlayerRole == EPlayerRole::Camera) ? TEXT("Camera")
+        : (PC->PlayerRole == EPlayerRole::Move1) ? TEXT("Move1")
+        : (PC->PlayerRole == EPlayerRole::Move2) ? TEXT("Move2")
+        : TEXT("Unknown")
+    );
+
     PlayerIndex++;
 }
 
-/////////////////////////////////////////////////   ï¿½ï¿½ï¿½ï¿½   /////////////////////////////////////////////////
 void ACharacterGameMode::ClearGame()
 {
     bool bClear = true;
 
     if (ACharacterGameState* GS = GetGameState<ACharacterGameState>())
     {
-        GS->GmaeClear = true;  //Å¬ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½
+        GS->GmaeClear = true;
     }
     GameOver(bClear);
 }
@@ -94,7 +105,7 @@ void ACharacterGameMode::EndGame()
 
     if (ACharacterGameState* GS = GetGameState<ACharacterGameState>())
     {
-        GS->GmaeClear = false;  //Å¬ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+        GS->GmaeClear = false; 
     }
     GameOver(bClear);
 }
@@ -109,7 +120,14 @@ void ACharacterGameMode::GameOver(bool bClear)
         }
     }
 }
-/////////////////////////////////////////////////   ï¿½ï¿½ï¿½ï¿½   /////////////////////////////////////////////////
+
+void ACharacterGameMode::ReturnToLobby()
+{
+    if (!HasAuthority()) return;
+
+    const FString LobbyURL = TEXT("/Game/Server/Maps/LobbyMap");
+    GetWorld()->ServerTravel(LobbyURL);
+}
 
 void ACharacterGameMode::Logout(AController* Exiting)
 {
@@ -118,8 +136,12 @@ void ACharacterGameMode::Logout(AController* Exiting)
     const TCHAR* RoleText = TEXT("Unknown");
     if (PC)
     {
-        // ¡Ú SetRole È£Ãâ ±ÝÁö! ±×³É ÇöÀç °ª ÀÐ±â
-        RoleText = (PC->PlayerRole == EPlayerRole::Camera) ? TEXT("Camera") : TEXT("Move");
+        // ÇöÀç °ª¸¸ ÀÐ±â(SetRole È£Ãâ ±ÝÁö)
+        RoleText =
+            (PC->PlayerRole == EPlayerRole::Camera) ? TEXT("Camera")
+            : (PC->PlayerRole == EPlayerRole::Move1) ? TEXT("Move1")
+            : (PC->PlayerRole == EPlayerRole::Move2) ? TEXT("Move2")
+            : TEXT("Unknown");
     }
 
     UE_LOG(LogTemp, Warning, TEXT("[GM] Logout Role=%s"), RoleText);

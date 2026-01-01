@@ -167,6 +167,12 @@ void AALCGunBase::HandleFire(const FRotator& AimRot)
     // 발사체에 데미지/방향 넘기기
     Proj->Init(Damage, ShootDir, BulletSpeed);
 
+    if (BulletSpeed > 0.f && MaxRange > 0.f)
+    {
+        const float LifeTime = MaxRange / BulletSpeed;
+        Proj->SetLifeSpan(LifeTime);
+    }
+
     // 탄 1발 소비 + 마지막 발사 시간 갱신
     CurrentAmmo--;
     LastFireTime = Now;

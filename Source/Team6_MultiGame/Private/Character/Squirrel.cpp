@@ -252,6 +252,18 @@ void ASquirrel::OnRep_HP()
 {
     // 여기서 HUD 갱신, 피격 UI, 사운드 등을 처리 가능(클라에서 호출됨)
     UE_LOG(LogTemp, Log, TEXT("[OnRep_HP] %s HP=%.1f"), *GetName(), HP);
+
+    // Dedicated Server는 UI 없음
+    if (GetNetMode() == NM_DedicatedServer)
+        return;
+
+    if (APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr)
+    {
+        if (AMainPlayerController* MPC = Cast<AMainPlayerController>(PC))
+        {
+            MPC->UpdateHUD_HP(HP, MaxHP);
+        }
+    }
 }
 
 float ASquirrel::TakeDamage(
