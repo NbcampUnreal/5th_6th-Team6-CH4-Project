@@ -7,9 +7,12 @@
 #include "CharacterGameMode.generated.h"
 
 class ASquirrel;
+class AMainPlayerController;
+
 /**
  * 
  */
+enum class EPlayerRole : uint8;
 UCLASS()
 class TEAM6_MULTIGAME_API ACharacterGameMode : public AGameMode
 {
@@ -34,10 +37,16 @@ public:
 
 protected:
 	
-	UPROPERTY()
-	ASquirrel* TargetSquirrel;
-
-	int32 PlayerIndex = 0;
+	//UPROPERTY()
+	//ASquirrel* TargetSquirrel;
 
 	
+	// 현재 접속 중인 컨트롤러들의 역할을 보고, 비어있는 역할 1개 반환
+// 4개가 다 차 있으면 None 반환
+	EPlayerRole FindFreeRole() const;
+
+	UPROPERTY()
+	TObjectPtr<ASquirrel> TargetSquirrel;
+
+
 };

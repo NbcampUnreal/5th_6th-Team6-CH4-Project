@@ -134,7 +134,7 @@ void AALCProjectileBase_Laser::Init(float InDamage, FVector Direction, float Spe
         }
     }
     // 모든 클라에 FX만 보여주기
-    MulticastPlayLaserFX(Start, FinalEnd);
+    MulticastPlayLaserFX(Start, Direction);
 
     //0.2초후 자동 제거
     SetLifeSpan(0.2f);
@@ -149,7 +149,7 @@ void AALCProjectileBase_Laser::MulticastPlayLaserFX_Implementation(const FVector
     //    *End.ToString(),
     //    (int32)GetNetMode());
 
-    if (GetNetMode() == NM_DedicatedServer || !LaserVFX)
+    if (GetNetMode() == NM_DedicatedServer || !LaserVFX2)
     { return; }
 
     UWorld* World = GetWorld();
@@ -174,7 +174,7 @@ void AALCProjectileBase_Laser::MulticastPlayLaserFX_Implementation(const FVector
     UNiagaraComponent* Comp =
         UNiagaraFunctionLibrary::SpawnSystemAtLocation(
             World,
-            LaserVFX,
+            LaserVFX2,
             Start,   // 총구 위치
             Rot,     // 보정된 회전
             FVector(1.f),
@@ -186,6 +186,11 @@ void AALCProjectileBase_Laser::MulticastPlayLaserFX_Implementation(const FVector
     {
         Comp->SetFloatParameter(TEXT("LaserLength"), Length);
         Comp->SetVectorParameter(TEXT("LaserDir"), Dir);
+
+        Comp->SetVectorParameter(TEXT("User.LaserStart"), Start);
+        Comp->SetVectorParameter(TEXT("User.LaserEnd"), End);
+
         Comp->SetAutoDestroy(true);
+
     }
 }
