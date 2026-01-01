@@ -12,8 +12,8 @@ AAISpawnVolume::AAISpawnVolume()
 	RootComponent = SpawningBox;
 
 	// 초기값 설정
-	MaxAIInstanceCount = 5;
-	CurrentLivingAICount = 0;
+	MaxAIInstanceCount = 10;
+	CurrentLivingAICount =0;
 }
 
 void AAISpawnVolume::BeginPlay()
@@ -90,7 +90,7 @@ void AAISpawnVolume::HandleAIDeath(AActor* DeadActor)
 			ACharacterGameMode* GM = Cast<ACharacterGameMode>(World->GetAuthGameMode());
 			if (GM)
 			{
-				GM->EndGame();
+				GM->ClearGame();
 			
 			}
 		}
