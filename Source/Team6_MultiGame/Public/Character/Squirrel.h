@@ -28,6 +28,7 @@ public:
 
 	void Fire_ServerAuth(); // 서버에서만 호출될 발사
 
+
 	// 서버 권위 점프
 	void Jump_ServerAuth();
 	void StopJump_ServerAuth();
@@ -134,7 +135,7 @@ protected:
 
 	// ===== Death / Ragdoll =====
 	UPROPERTY(ReplicatedUsing = OnRep_IsDead, BlueprintReadOnly, Category = "HP")
-	bool bIsDead = true;
+	bool bIsDead = false;
 
 	UFUNCTION()
 	void OnRep_IsDead();

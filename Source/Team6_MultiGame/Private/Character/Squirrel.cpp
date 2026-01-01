@@ -13,6 +13,8 @@
 #include "TimerManager.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "CharacterGameMode/CharacterGameMode.h"
+#include "DrawDebugHelpers.h" 
+#include "Engine/World.h"
 
 // Sets default values
 ASquirrel::ASquirrel()
@@ -22,8 +24,7 @@ ASquirrel::ASquirrel()
     bReplicates = true;
     SetReplicateMovement(true);
     // ★ 서버에서 클라로 더 자주 보내게
-    NetUpdateFrequency = 100.f;        // 기본보다 크게 (예: 100)
-    MinNetUpdateFrequency = 30.f;      // 최소 보장 (예: 30)
+
     NetPriority = 3.f;                // 우선순위 상승
 
     // 협동 소규모 게임이면 켜도 됨(멀리 있어도 항상 relevant)
@@ -183,17 +184,49 @@ void ASquirrel::Move(const FVector2D& MoveInput)
 void ASquirrel::Fire_ServerAuth()
 {
     if (!HasAuthority()) return;
-    if (bIsDead) return;           // [권장] 죽었으면 사격/몽타주 금지
-    if (!CurrentGun) return;
+    if (bIsDead)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Squirrle] Fire_ServerAuth: Squirrle is Dead"));
+        return;
+    }// [권장] 죽었으면 사격/몽타주 금지
+    if (!CurrentGun)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Squirrle] Fire_ServerAuth: Don't Have Gun!!"));
+        return;
+    }
 
-    const FRotator AimRot(RepViewRot.Pitch, GetActorRotation().Yaw, 0.f);
+    // 1) 트레이스 시작점
+    const FVector Start = Camera
+        ? Camera->GetComponentLocation()
+        : GetActorLocation();
 
-    // 실제 발사(서버 권위)
-    CurrentGun->HandleFire(AimRot);
+    // 2) 트레이스 방향(카메라 회전값 사용)
+    const FRotator ViewRot = Camera
+        ? Camera->GetComponentRotation()
+        : FRotator(0.f, GetActorRotation().Yaw, 0.f); // 카메라 없으면 최소 폴백
+
+    const FVector End = Start + (ViewRot.Vector() * 5000.f);
+
+    FHitResult Hit;
+    FCollisionQueryParams Params(SCENE_QUERY_STAT(AimTrace), true, this);
+    Params.AddIgnoredActor(this);
+    if (CurrentGun) Params.AddIgnoredActor(CurrentGun);
+
+    const bool bHit = GetWorld()->LineTraceSingleByChannel(
+        Hit, Start, End, ECC_Visibility, Params
+    );
+
+    const FVector AimPoint = bHit ? Hit.ImpactPoint : End;
+
+
+    // 2) "도착 지점"을 총에 넘김
+    CurrentGun->HandleFire(AimPoint);
 
     // 몽타주 재생(모든 클라)
     Multicast_PlayFireMontage();
 }
+
+
 
 void ASquirrel::Multicast_PlayFireMontage_Implementation()
 {

@@ -22,7 +22,10 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void BeginPlay() override;
 
-	void HandleFire(const FRotator& AimRot);
+	void HandleFire(const FVector& AimRot);
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_DrawDebugFire(const FVector& Start, const FVector& End);
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<class AALCProjectileBase> ProjectileClass;
@@ -47,8 +50,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Muzzle")
 	FVector MuzzleFallbackOffset = FVector(30.f, 0.f, 10.f);
 
-	// 내부 유틸: 스폰 트랜스폼 계산
-	void GetMuzzleTransform(const FRotator& AimRot, FVector& OutLoc, FRotator& OutRot, bool& bOutUsedSocket) const;
 
 	float LastFireTime;
 
