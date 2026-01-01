@@ -168,42 +168,66 @@ void ABaseAICharacter::Die()
         AICon->OnAICharacterDead();
     }
 
-    MulticastPlayDeath();
-
-    GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
+    // [서버] 이동 중지 및 중력 영향 최소화
     if (GetCharacterMovement())
     {
+        GetCharacterMovement()->StopMovementImmediately();
         GetCharacterMovement()->DisableMovement();
     }
+
+    // [서버] 충돌 설정 (캡슐만 먼저 끄고 메시는 애니메이션을 위해 둡니다)
+    GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+    MulticastPlayDeath();
 }
 
 void ABaseAICharacter::MulticastPlayDeath_Implementation()
 {
-    // 1. 애니메이션 재생
     if (AppearancePresets.IsValidIndex(SelectedAppearanceIndex))
     {
         UAnimMontage* DeathAnim = AppearancePresets[SelectedAppearanceIndex].DeathMontage;
-        if (DeathAnim) PlayAnimMontage(DeathAnim);
-    }
 
-    // 2. 메시 컴포넌트 가져오기
-    USkeletalMeshComponent* MeshComp = GetMesh();
-    if (MeshComp)
-    {
-        // [중요] 에디터에서 설정한 마스터 머티리얼이 있다면 메시의 0번 슬롯에 덮어씌웁니다.
-        if (DissolveMasterMaterial)
+        // 1. 애니메이션 재생 전, 메시가 애니메이션을 끝까지 보여주도록 설정
+        GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision); // 쿼리만 끄거나 아예 건드리지 않음
+        GetMesh()->bNoSkeletonUpdate = false; // 업데이트 보장
+
+        if (DeathAnim)
         {
-            MeshComp->SetMaterial(0, DissolveMasterMaterial);
+            float Duration = PlayAnimMontage(DeathAnim);
+
+            // 델리게이트 바인딩
+            UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+            if (AnimInstance)
+            {
+                FOnMontageEnded MontageEndedDelegate;
+                MontageEndedDelegate.BindUObject(this, &ABaseAICharacter::StartDissolveAfterAnim);
+                AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, DeathAnim);
+            }
         }
-
-        // 이제 그 0번 슬롯(디졸브 머티리얼)을 제어할 다이내믹 인스턴스 생성
-        DynamicDissolveMaterial = MeshComp->CreateDynamicMaterialInstance(0);
+        else
+        {
+            StartDissolveAfterAnim(nullptr, false);
+        }
     }
+}
 
-    // 3. 블루프린트 타임라인 이벤트 호출
-    BP_StartDissolveEffect();
+void ABaseAICharacter::StartDissolveAfterAnim(UAnimMontage* Montage, bool bInterrupted)
+{
+    USkeletalMeshComponent* MeshComp = GetMesh();
+    if (MeshComp && DissolveMasterMaterial)
+    {
+        // 다이내믹 인스턴스 생성
+        DynamicDissolveMaterial = MeshComp->CreateDynamicMaterialInstance(0, DissolveMasterMaterial);
+
+        if (DynamicDissolveMaterial)
+        {
+            // 시작 시 파라미터 초기화 (완전 불투명 상태에서 시작)
+            DynamicDissolveMaterial->SetScalarParameterValue(TEXT("DissolveAmount"), 0.0f);
+
+            // 블루프린트 타임라인 시작
+            BP_StartDissolveEffect();
+        }
+    }
 }
 
 // 블루프린트 타임라인의 'Update' 핀에 연결될 함수

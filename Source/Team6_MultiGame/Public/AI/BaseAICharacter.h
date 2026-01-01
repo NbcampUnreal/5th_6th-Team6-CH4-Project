@@ -106,4 +106,6 @@ protected:
     UFUNCTION(BlueprintCallable, Category = "AI|Effects")
     void UpdateDissolveParameter(float DissolveValue);
 
+    void StartDissolveAfterAnim(UAnimMontage* Montage, bool bInterrupted);
+
 };

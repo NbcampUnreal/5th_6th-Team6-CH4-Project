@@ -77,23 +77,21 @@ void AAISpawnVolume::SpawnAI()
 // AI 사망 시 실행될 로직 구현
 void AAISpawnVolume::HandleAIDeath(AActor* DeadActor)
 {
+	// 서버에서만 로직을 처리하도록 보장
+	if (!HasAuthority()) return;
+
 	CurrentLivingAICount--;
 
-	UE_LOG(LogTemp, Log, TEXT("AI Died. Remaining: %d"), CurrentLivingAICount);
-
-	// 모든 AI가 죽었는지 체크
 	if (CurrentLivingAICount <= 0)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("All AI in Volume Cleared!"));
-
-		// 게임모드에게 게임 종료/UI 출력을 명령
 		if (UWorld* World = GetWorld())
 		{
+			
 			ACharacterGameMode* GM = Cast<ACharacterGameMode>(World->GetAuthGameMode());
 			if (GM)
 			{
-				
-				GM->ClearGame(); // 게임모드에 모든 적이 죽었다고 알림
+				GM->EndGame();
+			
 			}
 		}
 	}

@@ -8,6 +8,7 @@
 #include "Character/Squirrel.h"
 #include "UI/UIHUD.h"
 #include "UI/UW_Result.h"
+#include "CharacterGameMode/CharacterGameMode.h"
 
 
 
@@ -516,7 +517,6 @@ void AMainPlayerController::GetLifetimeReplicatedProps(
 /////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
 void AMainPlayerController::Client_ShowResult_Implementation(bool bIsRestart, bool bClear)
 {
-	SetPause(true);
 	ShowResult(bIsRestart, bClear);
 }
 
@@ -540,11 +540,31 @@ void AMainPlayerController::ShowResult(bool bIsRestart, bool bClear)
 		if (ResultUI)
 		{
 			ResultUI->AddToViewport();
-			bShowMouseCursor = true;
 			SetInputMode(FInputModeUIOnly());
 			ResultUI->SetTitleText(bClear);
 			ResultWidget = ResultUI;
+
+			bShowMouseCursor = true;
+			bEnableClickEvents = true;
+			bEnableMouseOverEvents = true;
+
+			FInputModeGameAndUI Mode;
+			Mode.SetWidgetToFocus(ResultUI->TakeWidget());                 // 포커스 지정
+			Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);// 마우스 락 해제
+			Mode.SetHideCursorDuringCapture(false);                        // 캡처 중 커서 숨김 X
+			SetInputMode(Mode);
+
+			SetIgnoreMoveInput(true);
+			SetIgnoreLookInput(true);
 		}
+	}
+}
+
+void AMainPlayerController::Server_RequestReturnToLobby_Implementation()
+{
+	if (ACharacterGameMode* GM = GetWorld()->GetAuthGameMode<ACharacterGameMode>())
+	{
+		GM->ReturnToLobby();
 	}
 }
 /////////////////////////////////////////////////   수정   /////////////////////////////////////////////////

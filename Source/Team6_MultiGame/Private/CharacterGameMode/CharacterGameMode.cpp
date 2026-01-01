@@ -88,14 +88,13 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
     PlayerIndex++;
 }
 
-/////////////////////////////////////////////////   ����   /////////////////////////////////////////////////
 void ACharacterGameMode::ClearGame()
 {
     bool bClear = true;
 
     if (ACharacterGameState* GS = GetGameState<ACharacterGameState>())
     {
-        GS->GmaeClear = true;  //Ŭ���� ��
+        GS->GmaeClear = true;
     }
     GameOver(bClear);
 }
@@ -106,7 +105,7 @@ void ACharacterGameMode::EndGame()
 
     if (ACharacterGameState* GS = GetGameState<ACharacterGameState>())
     {
-        GS->GmaeClear = false;  //Ŭ���� ����
+        GS->GmaeClear = false; 
     }
     GameOver(bClear);
 }
@@ -121,7 +120,14 @@ void ACharacterGameMode::GameOver(bool bClear)
         }
     }
 }
-/////////////////////////////////////////////////   ����   /////////////////////////////////////////////////
+
+void ACharacterGameMode::ReturnToLobby()
+{
+    if (!HasAuthority()) return;
+
+    const FString LobbyURL = TEXT("/Game/Server/Maps/LobbyMap");
+    GetWorld()->ServerTravel(LobbyURL);
+}
 
 void ACharacterGameMode::Logout(AController* Exiting)
 {
