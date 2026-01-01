@@ -76,7 +76,7 @@ void UUW_LobbyLayout::RefreshReadyText()
 			? FText::FromString(TEXT("READY"))
 			: FText::FromString(TEXT("NOT READY")));
 
-		GetWorld()->GetTimerManager().ClearTimer(RefreshTimerHandle);
+		//GetWorld()->GetTimerManager().ClearTimer(RefreshTimerHandle);
 	}
 	else
 	{

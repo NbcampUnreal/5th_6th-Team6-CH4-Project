@@ -17,7 +17,7 @@ public:
 	ALobbyGameModeBase();
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lobby")
-	int32 MinPlayersToStart = 2;
+	int32 MinPlayersToStart = 3;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lobby")
 	FString MainMapPath = TEXT("/Game/Maps/MainMap");

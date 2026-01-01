@@ -77,7 +77,7 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
 }
 
 /////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
-void ACharacterGameMode::ClearGmae()
+void ACharacterGameMode::ClearGame()
 {
     bool bClear = true;
 
@@ -108,6 +108,14 @@ void ACharacterGameMode::GameOver(bool bClear)
             PC->Client_ShowResult(true, bClear);
         }
     }
+}
+
+void ACharacterGameMode::ReturnToLobby()
+{
+    if (!HasAuthority()) return;
+
+    const FString LobbyURL = TEXT("/Game/Server/Maps/LobbyMap");
+    GetWorld()->ServerTravel(LobbyURL);
 }
 /////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
 

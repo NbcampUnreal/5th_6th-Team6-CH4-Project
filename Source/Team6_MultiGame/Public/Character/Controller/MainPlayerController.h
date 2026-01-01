@@ -153,6 +153,9 @@ public:
 	UFUNCTION(Client, Reliable)
 	void Client_ShowResult(bool bIsRestart, bool bClear);
 
+	UFUNCTION(Server, Reliable)
+	void Server_RequestReturnToLobby();
+
 protected:
 	void ShowResult(bool bIsRestart, bool bClear);
 	/////////////////////////////////////////////////   ¼öÁ¤   /////////////////////////////////////////////////
