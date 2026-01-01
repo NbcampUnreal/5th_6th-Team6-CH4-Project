@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "KYG/LCHealable.h"		//회복아이템을 위해 추가
+#include "Animation/AnimMontage.h" // 추가
 #include "Squirrel.generated.h"
 
 class USpringArmComponent;
@@ -26,6 +27,7 @@ public:
 	void ApplyLook_ServerAuth(const FVector2D& LookInput); 
 
 	void Fire_ServerAuth(); // 서버에서만 호출될 발사
+
 
 	// 서버 권위 점프
 	void Jump_ServerAuth();
@@ -49,21 +51,23 @@ public:
 	UFUNCTION()
 	void OnRep_IsDash();
 
-	// 서버용 쿨다운/타이머
-	float NextDashAllowedTime = 0.f;
+	// 쿨타임 끝나면 다시 true로 만드는 타이머 핸들만 추가
+	FTimerHandle DashCooldownTimerHandle;
 
+	// 기존 핸들(속도 원복용) 그대로 사용
 	FTimerHandle DashEndTimerHandle;
 
 	// 대쉬 “활성 유지 시간”(애님 길이에 맞춰 조절)
 	UPROPERTY(EditDefaultsOnly, Category = "Dash")
-	float DashActiveTime = 0.8f;
+	float DashActiveTime = 1.2f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Dash")
 	float DashCooldownTime = 5.f;
 
 	void EndDash_ServerAuth();
 
-
+	// 쿨타임 끝 처리
+	void ResetDashCooldown_ServerAuth();
 	// 언리얼 표준 데미지 진입점(ApplyDamage / ApplyPointDamage가 이걸 호출)
 	virtual float TakeDamage(
 		float DamageAmount,
@@ -74,6 +78,9 @@ public:
 
 
 protected:
+
+	
+
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
@@ -91,10 +98,21 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Move")
 	float SprintSpeed = 600.f;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Move")
+	float DashSpeed = 2000.f;
 
 	// [FIX] Attach는 단일 함수로
 	void AttachCurrentGun();
 
+	// 사격 몽타주(블루프린트에서 할당)
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UAnimMontage* FireMontage = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	float FireMontagePlayRate = 1.0f;
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_PlayFireMontage();
 	
 	UFUNCTION()
 	void OnRep_IsJog();

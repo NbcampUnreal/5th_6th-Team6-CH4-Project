@@ -6,6 +6,7 @@
 
 class UUW_HPBar;
 class UUW_KeyGuide;
+class UUW_Crosshair;
 
 UCLASS()
 class TEAM6_MULTIGAME_API UUIHUD : public UUserWidget
@@ -34,6 +35,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UUW_KeyGuide> KeyGuideWidget;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UUW_Crosshair> CrosshairWidget;
 
 
 };
