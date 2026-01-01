@@ -4,6 +4,8 @@
 #include "GameFramework/Character.h"
 #include "BaseAICharacter.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAICharacterDeadSignature, AActor*, DeadActor);
+
 USTRUCT(BlueprintType)
 struct FAIAppearanceSet
 {
@@ -29,6 +31,10 @@ class TEAM6_MULTIGAME_API ABaseAICharacter : public ACharacter
 
 public:
     ABaseAICharacter();
+
+    // [추가] SpawnVolume이 이 델리게이트를 보고 죽음을 감지
+    UPROPERTY(BlueprintAssignable, Category = "AI|Events")
+    FOnAICharacterDeadSignature OnAICharacterDeadDelegate;
 
     UPROPERTY(EditAnywhere, Category = "AI|Appearance")
     TArray<FAIAppearanceSet> AppearancePresets;
@@ -99,5 +105,7 @@ protected:
 
     UFUNCTION(BlueprintCallable, Category = "AI|Effects")
     void UpdateDissolveParameter(float DissolveValue);
+
+    void StartDissolveAfterAnim(UAnimMontage* Montage, bool bInterrupted);
 
 };

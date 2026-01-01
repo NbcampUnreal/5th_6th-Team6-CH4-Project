@@ -12,6 +12,7 @@
 #include "Components/CapsuleComponent.h"
 #include "TimerManager.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "CharacterGameMode/CharacterGameMode.h"
 
 // Sets default values
 ASquirrel::ASquirrel()
@@ -305,7 +306,12 @@ void ASquirrel::Die(AController* Killer, AActor* DamageCauser)
     // 서버도 즉시 레그돌 적용
     OnRep_IsDead();
 
-    SetLifeSpan(8.f);
+    if (ACharacterGameMode* GM = GetWorld()->GetAuthGameMode<ACharacterGameMode>())
+    {
+        GM->EndGame();
+    }
+
+    SetLifeSpan(30.f);
 }
 
 void ASquirrel::OnRep_IsDead()
@@ -331,6 +337,7 @@ void ASquirrel::OnRep_IsDead()
         MeshComp->SetSimulatePhysics(true);
         MeshComp->bBlendPhysics = true; // 권장
     }
+   
 }
 
 void ASquirrel::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

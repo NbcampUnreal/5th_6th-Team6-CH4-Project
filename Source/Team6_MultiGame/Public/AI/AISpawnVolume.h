@@ -31,6 +31,13 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spawning")
 	float SpawnInterval = 2.0f;
 
+	// 현재 살아있는 AI 숫자를 저장할 변수
+	int32 CurrentLivingAICount;
+
+	// AI가 죽었을 때 호출되는 함수
+	UFUNCTION()
+	void HandleAIDeath(AActor* DeadActor);
+
 
 public:	
 	// 박스 안의 랜덤 위치를 계산하는 함수

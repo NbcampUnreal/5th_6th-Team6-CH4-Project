@@ -17,8 +17,9 @@ class UUW_Result;
 UENUM(BlueprintType)
 enum class EPlayerRole : uint8
 {
-	Move ,
-	Camera  
+	Camera,
+	Move1,   // W/S
+	Move2    // A/D + Shift + Space
 };
 
 UCLASS()
@@ -33,14 +34,15 @@ public:
 	void SetRole(EPlayerRole NewRole);
 	void SetTargetSquirrel(ASquirrel* InSquirrel);
 
+	UPROPERTY(ReplicatedUsing = OnRep_PlayerRole)
+	EPlayerRole PlayerRole = EPlayerRole::Camera;
 protected:
 	/* ===================== Lifecycle ===================== */
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
 
 	/* ===================== Role ===================== */
-	UPROPERTY(ReplicatedUsing = OnRep_PlayerRole)
-	EPlayerRole PlayerRole = EPlayerRole::Move;
+
 
 	UFUNCTION()
 	void OnRep_PlayerRole();

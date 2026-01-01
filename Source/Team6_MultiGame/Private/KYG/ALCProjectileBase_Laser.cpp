@@ -47,6 +47,13 @@ void AALCProjectileBase_Laser::Init(float InDamage, FVector Direction, float Spe
     const FVector Dir = Direction.GetSafeNormal();	//방향
 	const FVector End = Start + Dir * MaxRange;	//최대 거리
 
+    //디버그 로그,  레이저 판정 방향
+    UE_LOG(LogTemp, Warning,
+        TEXT("[LASER Init] Dir=%s  Start=%s  MaxRange=%.1f"),
+        *Dir.ToString(),
+        *Start.ToString(),
+        MaxRange);
+
 	//라인트레잇 세팅
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(LaserTrace), false);
 	Params.AddIgnoredActor(this);                         // 자기 자신 무시
@@ -116,7 +123,7 @@ void AALCProjectileBase_Laser::Init(float InDamage, FVector Direction, float Spe
                 continue;
             }
 
-            // ★ 여기서 엔진 Damage 시스템 사용
+            //여기서 엔진 Damage 시스템 사용
             UGameplayStatics::ApplyDamage(
                 Target,
                 Damage,
@@ -142,61 +149,43 @@ void AALCProjectileBase_Laser::MulticastPlayLaserFX_Implementation(const FVector
     //    *End.ToString(),
     //    (int32)GetNetMode());
 
-    // 전용 서버 월드에서는 이펙트 안 뿌림
-    if (GetNetMode() == NM_DedicatedServer)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("[LaserFX] DedicatedServer → FX 생략"));
-        return;
-    }
-    if (!LaserVFX)
-    {
-        UE_LOG(LogTemp, Error, TEXT("[LaserFX] LaserVFX is NULL!"));
-        return;
-    }
+    if (GetNetMode() == NM_DedicatedServer || !LaserVFX)
+    { return; }
 
     UWorld* World = GetWorld();
-    if (!World) 
-    { 
-        UE_LOG(LogTemp, Error, TEXT("[LaserFX] World is NULL!"));
-        return;
-    }
+    if (!World) { return; }
 
-    // 시작 위치 확인용 디버그 스피어
-    //DrawDebugSphere(
-    //    World,
-    //    Start,
-    //    20.f,
-    //    12,
-    //    FColor::Green,
-    //    false,
-    //    1.5f
-    //);
+    const FVector Dir = (End - Start).GetSafeNormal();
+    const float Length = (End - Start).Size();
 
-    const FVector Dir = End - Start;
-    const FRotator Rot = Dir.Rotation();
-    const float Length = Dir.Size();
+    //FX에 넘기는 방향 길이
+    UE_LOG(LogTemp, Warning,
+        TEXT("[LASER FX] Dir=%s  Length=%.1f  Start=%s  End=%s"),
+        *Dir.ToString(),
+        Length,
+        *Start.ToString(),
+        *End.ToString());
+
+    // Dir 기준 회전
+    //FRotator Rot = Dir.Rotation();
+
+    const FRotator Rot = Dir.Rotation();  // Pitch -90도
 
     UNiagaraComponent* Comp =
         UNiagaraFunctionLibrary::SpawnSystemAtLocation(
             World,
             LaserVFX,
-            Start,
-            Rot,
-            FVector(1.f, 1.f, 1.f),
+            Start,   // 총구 위치
+            Rot,     // 보정된 회전
+            FVector(1.f),
             true,
             true
         );
 
     if (Comp)
     {
-        // 나이아가에서 쓸 길이 파라미터
         Comp->SetFloatParameter(TEXT("LaserLength"), Length);
-
-        //시스템이  끝나면 자동 삭제
+        Comp->SetVectorParameter(TEXT("LaserDir"), Dir);
         Comp->SetAutoDestroy(true);
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("[LaserFX] SpawnSystemAtLocation returned NULL"));
     }
 }
