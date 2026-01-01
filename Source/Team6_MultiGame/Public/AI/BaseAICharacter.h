@@ -65,6 +65,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "AI|Death")
     void FinishDying();
 
+    UFUNCTION(BlueprintCallable, Category = "AI|Death")
+    void TriggerDissolveEffect();
+
 protected:
     virtual void BeginPlay() override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;

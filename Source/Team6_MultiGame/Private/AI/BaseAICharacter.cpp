@@ -168,54 +168,23 @@ void ABaseAICharacter::Die()
 
     MulticastPlayDeath();
 }
-
 void ABaseAICharacter::MulticastPlayDeath_Implementation()
 {
     if (AppearancePresets.IsValidIndex(SelectedAppearanceIndex))
     {
         UAnimMontage* DeathAnim = AppearancePresets[SelectedAppearanceIndex].DeathMontage;
+        if (!DeathAnim) return;
+
+        UAnimInstance* AnimInst = GetMesh()->GetAnimInstance();
+        if (AnimInst && AnimInst->Montage_IsPlaying(DeathAnim)) return;
+
         GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
         GetMesh()->bNoSkeletonUpdate = false;
 
-        if (DeathAnim)
-        {
-            PlayAnimMontage(DeathAnim);
+        PlayAnimMontage(DeathAnim);
 
-            UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-            if (AnimInstance)
-            {
-                FOnMontageEnded MontageEndedDelegate;
-                MontageEndedDelegate.BindUObject(this, &ABaseAICharacter::StartDissolveAfterAnim);
-                AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, DeathAnim);
-            }
-        }
-        else
-        {
-            StartDissolveAfterAnim(nullptr, false);
-        }
-    }
-}
-
-void ABaseAICharacter::StartDissolveAfterAnim(UAnimMontage* Montage, bool bInterrupted)
-{
-    USkeletalMeshComponent* MeshComp = GetMesh();
-    if (!MeshComp) return;
-
-   
-    MeshComp->bNoSkeletonUpdate = true;
-    MeshComp->SetComponentTickEnabled(false);
-
-   
-    MeshComp->SetAnimInstanceClass(nullptr);
-
-    if (DissolveMasterMaterial)
-    {
-        DynamicDissolveMaterial = MeshComp->CreateDynamicMaterialInstance(0, DissolveMasterMaterial);
-        if (DynamicDissolveMaterial)
-        {
-            DynamicDissolveMaterial->SetScalarParameterValue(TEXT("DissolveAmount"), 0.0f);
-            BP_StartDissolveEffect(); 
-        }
+        // [수정] 아래의 MontageEndedDelegate 관련 코드들은 삭제하세요.
+        // 이제 몽타주 안에 심어놓은 Notify가 TriggerDissolveEffect를 호출합니다.
     }
 }
 
@@ -231,7 +200,10 @@ void ABaseAICharacter::OnRep_IsDead()
 {
     if (bIsDead)
     {
+       
         GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+        // MulticastPlayDeath(); 
     }
 }
 
@@ -242,6 +214,37 @@ void ABaseAICharacter::FinishDying()
         Destroy();
     }
 }
+
+
+void ABaseAICharacter::TriggerDissolveEffect()
+{
+    // 1. 중복 실행 방지 및 유효성 검사
+    if (DynamicDissolveMaterial || !DissolveMasterMaterial) return;
+
+    USkeletalMeshComponent* MeshComp = GetMesh();
+    if (!MeshComp) return;
+
+    // 2. 애니메이션 확실히 멈추기 (박제)
+    MeshComp->SetPlayRate(0.0f); // 재생 속도 0
+    UAnimInstance* AnimInst = MeshComp->GetAnimInstance();
+    if (AnimInst)
+    {
+        AnimInst->Montage_Pause(nullptr); // 현재 재생 중인 모든 몽타주 일시정지
+    }
+
+    // 포즈 업데이트 중단 (이걸 해야 완전히 박제됨)
+    MeshComp->bNoSkeletonUpdate = true;
+
+    // 3. 디졸브 머티리얼 생성 및 적용 (슬롯 0번 고정)
+    DynamicDissolveMaterial = MeshComp->CreateDynamicMaterialInstance(0, DissolveMasterMaterial);
+
+    if (DynamicDissolveMaterial)
+    {
+        // 4. 블루프린트 타임라인 시작 호출
+        BP_StartDissolveEffect();
+    }
+}
+
 
 void ABaseAICharacter::OnRep_CurrentHP()
 {
