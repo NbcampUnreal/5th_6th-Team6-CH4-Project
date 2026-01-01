@@ -183,8 +183,6 @@ void ABaseAICharacter::MulticastPlayDeath_Implementation()
 
         PlayAnimMontage(DeathAnim);
 
-        // [수정] 아래의 MontageEndedDelegate 관련 코드들은 삭제하세요.
-        // 이제 몽타주 안에 심어놓은 Notify가 TriggerDissolveEffect를 호출합니다.
     }
 }
 
