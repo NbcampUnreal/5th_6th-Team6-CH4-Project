@@ -7,6 +7,9 @@
 #include "Character/Squirrel.h"
 #include "EngineUtils.h"             // TActorIterator
 
+#include "CharacterGameMode/CharacterGameState.h"
+
+
 ACharacterGameMode::ACharacterGameMode()
 {
     DefaultPawnClass = nullptr;
@@ -73,7 +76,40 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
     PlayerIndex++;
 }
 
+/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
+void ACharacterGameMode::ClearGmae()
+{
+    bool bClear = true;
 
+    if (ACharacterGameState* GS = GetGameState<ACharacterGameState>())
+    {
+        GS->GmaeClear = true;  //클리어 함
+    }
+    GameOver(bClear);
+}
+
+void ACharacterGameMode::EndGame()
+{
+    bool bClear = false;
+
+    if (ACharacterGameState* GS = GetGameState<ACharacterGameState>())
+    {
+        GS->GmaeClear = false;  //클리어 못함
+    }
+    GameOver(bClear);
+}
+
+void ACharacterGameMode::GameOver(bool bClear)
+{
+    for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+    {
+        if (AMainPlayerController* PC = Cast<AMainPlayerController>(It->Get()))
+        {
+            PC->Client_ShowResult(true, bClear);
+        }
+    }
+}
+/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
 
 
 

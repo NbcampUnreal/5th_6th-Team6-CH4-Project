@@ -8,7 +8,10 @@
 IOnlineIdentityPtr ULoginSubsystem::GetIdentityInterface() const
 {
 	IOnlineSubsystem* OSS = IOnlineSubsystem::Get(TEXT("EOS"));
-	if (!OSS) return nullptr;
+	if (!OSS)
+	{
+		return nullptr;
+	}
 	return OSS->GetIdentityInterface();
 }
 
@@ -50,9 +53,9 @@ void ULoginSubsystem::LoginEOS_AccountPortal()
 	}
 
 	FOnlineAccountCredentials Creds;
-	Creds.Type = TEXT("accountportal"); //  일반 Epic 로그인(브라우저/오버레이)
-	Creds.Id = TEXT("");              // 보통 비움
-	Creds.Token = TEXT("");              // 보통 비움
+	Creds.Type = TEXT("accountportal");
+	Creds.Id = TEXT("");
+	Creds.Token = TEXT("");
 
 	OnLoginCompleteHandle =
 		Identity->AddOnLoginCompleteDelegate_Handle(
@@ -74,7 +77,6 @@ void ULoginSubsystem::LoginEOS_DevAuth(const FString& DevAuthId)
 
 	const int32 LocalUserNum = 0;
 
-	// 이미 로그인 상태면 스킵
 	if (Identity->GetLoginStatus(LocalUserNum) == ELoginStatus::LoggedIn)
 	{
 		bLoggedIn = true;
@@ -84,8 +86,8 @@ void ULoginSubsystem::LoginEOS_DevAuth(const FString& DevAuthId)
 
 	FOnlineAccountCredentials Creds;
 	Creds.Type = TEXT("developer");   // DevAuthTool
-	Creds.Id = TEXT("127.0.0.1:6547");        // DevAuthTool credential name
-	Creds.Token = TEXT("TestUser");           // 보통 비움
+	Creds.Id = TEXT("127.0.0.1:6547");   // DevAuthTool credential name
+	Creds.Token = TEXT("TestUser");
 
 	OnLoginCompleteHandle =
 		Identity->AddOnLoginCompleteDelegate_Handle(
@@ -112,7 +114,6 @@ void ULoginSubsystem::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, c
 		return;
 	}
 
-	// UserId 문자열: "EpicAccountId|ProductUserId" 형태(너 로그 그대로) :contentReference[oaicite:3]{index=3}
 	const FString IdStr = UserId.ToString();
 	FString Left, Right;
 	if (IdStr.Split(TEXT("|"), &Left, &Right))

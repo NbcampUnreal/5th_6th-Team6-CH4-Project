@@ -70,7 +70,7 @@ void UUW_LobbyLayout::RefreshReadyText()
 
 	if (const ALobbyPlayerState* PS = Cast<ALobbyPlayerState>(BasePS))
 	{
-		if (ReadyButton) ReadyButton->SetIsEnabled(true); //  PS 생기면 활성
+		if (ReadyButton) ReadyButton->SetIsEnabled(true);
 
 		ReadyStateText->SetText(PS->bReady
 			? FText::FromString(TEXT("READY"))
