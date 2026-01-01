@@ -30,7 +30,21 @@ AALCGunBase::AALCGunBase()
 	LastFireTime = -999.f;	//게임 시작 시 첫 발을 즉시 쏠 수있도록 발사 가능 상태로 만들기 위한 초기값
 
     MaxAmmo = 20;   //일반총 기본값
-    CurrentAmmo = MaxAmmo;
+    CurrentAmmo = 0;
+}
+
+void AALCGunBase::BeginPlay()
+{
+    Super::BeginPlay();
+
+    if (HasAuthority())
+    {
+        CurrentAmmo = MaxAmmo;
+
+        UE_LOG(LogTemp, Warning,
+            TEXT("[Gun] BeginPlay Ammo = %d / %d (%s)"),
+            CurrentAmmo, MaxAmmo, *GetName());
+    }
 }
 
 //사격 함수
@@ -115,12 +129,17 @@ void AALCGunBase::HandleFire(const FRotator& AimRot)
         return;
     }
 
-    const FVector ShootDir = AimRot.Vector();
+    // 총구 위치/회전 가져오기 (카메라 AimRot 기준으로 보정)
+    FVector MuzzleLoc;
+    FRotator MuzzleRot;
+    bool bUsedSocket = false;
+    GetMuzzleTransform(AimRot, MuzzleLoc, MuzzleRot, bUsedSocket);
 
-    const FVector SpawnLoc =
-        OwnerPawn->GetActorLocation()
-        + ShootDir * 100.f
-        + FVector(0.f, 0.f, 50.f);
+    // 실제 발사 방향 (카메라 조준 기준으로)
+    const FVector ShootDir = MuzzleRot.Vector();   // 또는 AimRot.Vector();
+
+    // 스폰 위치는 무조건 총구
+    const FVector SpawnLoc = MuzzleLoc;
 
     FActorSpawnParameters Params;
     Params.Owner = OwnerPawn;
@@ -128,10 +147,11 @@ void AALCGunBase::HandleFire(const FRotator& AimRot)
     Params.SpawnCollisionHandlingOverride =
         ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
+    // 발사체를 총구에서, 조준 방향으로 스폰
     AALCProjectileBase* Proj = World->SpawnActor<AALCProjectileBase>(
         ProjectileClass,
         SpawnLoc,
-        AimRot,
+        ShootDir.Rotation(),   // 또는 MuzzleRot
         Params
     );
 
@@ -144,9 +164,10 @@ void AALCGunBase::HandleFire(const FRotator& AimRot)
         return;
     }
 
+    // 발사체에 데미지/방향 넘기기
     Proj->Init(Damage, ShootDir, BulletSpeed);
 
-    //탄 1발 소비 + 마지막 발사 시간 갱신
+    // 탄 1발 소비 + 마지막 발사 시간 갱신
     CurrentAmmo--;
     LastFireTime = Now;
 
@@ -154,7 +175,6 @@ void AALCGunBase::HandleFire(const FRotator& AimRot)
         TEXT("[Gun] Fired. Ammo=%d/%d Cooldown=%.2f"),
         CurrentAmmo, MaxAmmo, FireCooldown);
 
-    // 방금 쏜 걸로 0발이 됐으면 총 Destroy
     if (CurrentAmmo <= 0)
     {
         UE_LOG(LogTemp, Warning, TEXT("[Gun] Ammo depleted -> Destroy %s"), *GetName());
