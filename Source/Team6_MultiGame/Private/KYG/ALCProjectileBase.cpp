@@ -38,6 +38,9 @@ AALCProjectileBase::AALCProjectileBase()
 	MovementComp->InitialSpeed = 3000.f;
 	MovementComp->MaxSpeed = 3000.f;
 	MovementComp->ProjectileGravityScale = 0.f;	//중력 영향 x
+
+	// 자동 제거 
+	SetLifeSpan(1.0f);
 }
 
 void AALCProjectileBase::BeginPlay()

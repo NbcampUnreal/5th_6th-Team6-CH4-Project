@@ -62,4 +62,8 @@ protected:
 	// 현재 남은 탄 수 Replicate 해서 HUD 등에 쓸 수 있게
 	UPROPERTY(Replicated, VisibleAnywhere, Category = "Weapon|Ammo")
 	int32 CurrentAmmo = 0;
+
+	//최대사거리
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon|Range")
+	float MaxRange = 3000.f;
 };
