@@ -236,7 +236,7 @@ void AMainPlayerController::ApplyPlayerRole()
 	{
 		UE_LOG(LogTemp, Warning,
 			TEXT("[ApplyRole] ViewTarget set to %s | Role=%s"),
-			*TargetSquirrel->GetName(),
+			*GetNameSafe(TargetSquirrel),
 			(PlayerRole == EPlayerRole::Camera) ? TEXT("Camera")
 			: (PlayerRole == EPlayerRole::Move1) ? TEXT("Move1")
 			: (PlayerRole == EPlayerRole::Move2) ? TEXT("Move2")
@@ -443,6 +443,7 @@ void AMainPlayerController::OnDashStarted(const FInputActionValue& Value)
 		return;
 
 	// 클라 -> 서버로 대쉬 요청
+	UE_LOG(LogTemp, Warning, TEXT("[Move2] Dash:Dash_ServerAuth()"));
 	Server_SendDash();
 }
 
