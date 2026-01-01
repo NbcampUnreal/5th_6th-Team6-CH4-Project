@@ -32,7 +32,8 @@ protected:
 
 	// 에디터에서 골라줄 VFX
 	UPROPERTY(EditDefaultsOnly, Category = "VFX")
-	UNiagaraSystem* LaserVFX;
+	UNiagaraSystem* LaserVFX2;
+
 
 	// 모든 클라에 이펙트만 전파 (데미지는 서버에서 이미 처리)
 	UFUNCTION(NetMulticast, Reliable)

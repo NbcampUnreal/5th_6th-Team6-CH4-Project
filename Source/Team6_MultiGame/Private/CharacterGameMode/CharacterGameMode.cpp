@@ -9,12 +9,70 @@
 
 #include "CharacterGameMode/CharacterGameState.h"
 
+namespace
+{
+    static const TCHAR* RoleToText(EPlayerRole Role)
+    {
+        switch (Role)
+        {
+        case EPlayerRole::Camera: return TEXT("Camera");
+        case EPlayerRole::Fire:   return TEXT("Fire");
+        case EPlayerRole::Move1:  return TEXT("Move1");
+        case EPlayerRole::Move2:  return TEXT("Move2");
+        case EPlayerRole::None:   return TEXT("None");
+        default:                  return TEXT("Unknown");
+        }
+    }
+}
 
 ACharacterGameMode::ACharacterGameMode()
 {
     DefaultPawnClass = nullptr;
-    PlayerIndex = 0;
     TargetSquirrel = nullptr;
+}
+
+EPlayerRole ACharacterGameMode::FindFreeRole() const
+{
+    // 고정 4개 역할 풀(원하는 우선순서로 정렬 가능)
+    static const EPlayerRole RoleOrder[] =
+    {
+        EPlayerRole::Camera,
+        EPlayerRole::Fire,
+        EPlayerRole::Move1,
+        EPlayerRole::Move2
+    };
+
+    TSet<EPlayerRole> Taken;
+
+    // 현재 월드의 모든 PlayerController를 돌면서 이미 사용 중인 역할 수집
+    for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+    {
+        const AMainPlayerController* Other = Cast<AMainPlayerController>(It->Get());
+        if (!Other) continue;
+
+        switch (Other->PlayerRole)
+        {
+        case EPlayerRole::Camera:
+        case EPlayerRole::Fire:
+        case EPlayerRole::Move1:
+        case EPlayerRole::Move2:
+            Taken.Add(Other->PlayerRole);
+            break;
+        default:
+            // None/Unknown 등은 Taken에 넣지 않음
+            break;
+        }
+    }
+
+    // 빈 역할 하나 반환
+    for (EPlayerRole R : RoleOrder)
+    {
+        if (!Taken.Contains(R))
+            return R;
+    }
+
+    // 4개가 모두 차 있으면 None
+    return EPlayerRole::None;
 }
 
 
@@ -26,10 +84,10 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
     if (!PC) return;
 
     UE_LOG(LogTemp, Warning,
-        TEXT("[GM] PostLogin PC=%s Pawn=%s PlayerIndex=%d"),
+        TEXT("[GM] PostLogin PC=%s Pawn=%s NumPlayers=%d"),
         *PC->GetName(),
         PC->GetPawn() ? TEXT("HasPawn") : TEXT("NoPawn"),
-        PlayerIndex
+        NumPlayers
     );
 
     // ===== TargetSquirrel 캐싱(처음 1회) =====
@@ -54,20 +112,9 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
         return;
     }
 
-    // ===== 역할 배정: 정확히 3명 고정 =====
-    if (PlayerIndex == 0)
-    {
-        PC->SetRole(EPlayerRole::Camera);
-    }
-    else if (PlayerIndex == 1)
-    {
-        PC->SetRole(EPlayerRole::Move1);
-    }
-    else // PlayerIndex == 2
-    {
-        PC->SetRole(EPlayerRole::Move2);
-    }
-
+    // ===== 비어있는 역할 배정(4개 다 차면 None) =====
+    const EPlayerRole AssignedRole = FindFreeRole();
+    PC->SetRole(AssignedRole);
     
 
 
@@ -79,13 +126,8 @@ void ACharacterGameMode::PostLogin(APlayerController* NewPlayer)
     UE_LOG(LogTemp, Warning,
         TEXT("[GM] Assigned PC=%s Role=%s"),
         *GetNameSafe(PC),
-        (PC->PlayerRole == EPlayerRole::Camera) ? TEXT("Camera")
-        : (PC->PlayerRole == EPlayerRole::Move1) ? TEXT("Move1")
-        : (PC->PlayerRole == EPlayerRole::Move2) ? TEXT("Move2")
-        : TEXT("Unknown")
+        RoleToText(AssignedRole)
     );
-
-    PlayerIndex++;
 }
 
 void ACharacterGameMode::ClearGame()
@@ -136,15 +178,11 @@ void ACharacterGameMode::Logout(AController* Exiting)
     const TCHAR* RoleText = TEXT("Unknown");
     if (PC)
     {
-        // 현재 값만 읽기(SetRole 호출 금지)
-        RoleText =
-            (PC->PlayerRole == EPlayerRole::Camera) ? TEXT("Camera")
-            : (PC->PlayerRole == EPlayerRole::Move1) ? TEXT("Move1")
-            : (PC->PlayerRole == EPlayerRole::Move2) ? TEXT("Move2")
-            : TEXT("Unknown");
+        RoleText = RoleToText(PC->PlayerRole);
     }
 
     UE_LOG(LogTemp, Warning, TEXT("[GM] Logout Role=%s"), RoleText);
+
     EndGame();
     Super::Logout(Exiting);
 }
