@@ -39,10 +39,8 @@ void UUW_TitleLayout::LobbyButtonClicked()
 	const FString ServerAddr = TEXT("13.209.70.161:7777");
 	UE_LOG(LogTemp, Warning, TEXT("Go Lobby: %s"), *ServerAddr);
 
-    // OwningPlayer 우선
     ATitlePlayerController* PC = GetOwningPlayer<ATitlePlayerController>();
 
-    // 혹시 OwningPlayer가 비는 상황 대비 (안전장치)
     if (!PC)
     {
         if (UWorld* World = GetWorld())

@@ -2,65 +2,99 @@
 #include "Components/BoxComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Engine/World.h"
+#include "AI/BaseAICharacter.h" 
+#include "CharacterGameMode/CharacterGameMode.h"        
 
 
 AAISpawnVolume::AAISpawnVolume()
 {
- 
-	// 박스 컴포넌트 생성 및 루트로 설정
 	SpawningBox = CreateDefaultSubobject<UBoxComponent>(TEXT("SpawningBox"));
 	RootComponent = SpawningBox;
-}
 
+	// 초기값 설정
+	MaxAIInstanceCount = 5;
+	CurrentLivingAICount = 0;
+}
 
 void AAISpawnVolume::BeginPlay()
 {
-    Super::BeginPlay();
-
-    // 서버(권한자)인 경우에만 AI를 생성
-    if (HasAuthority())
-    {
-        for (int32 i = 0; i < MaxAIInstanceCount; i++)
-        {
-            SpawnAI();
-        }
-    }
+	Super::BeginPlay();
+	// 서버에서만 AI 스폰 로직 실행
+	if (HasAuthority())
+	{
+		// 초기 살아있는 AI 수 설정
+		CurrentLivingAICount = MaxAIInstanceCount;
+		// 지정된 수만큼 AI 스폰
+		for (int32 i = 0; i < MaxAIInstanceCount; i++)
+		{
+			SpawnAI();
+		}
+	}
 }
-
+// 박스 컴포넌트 내의 랜덤 위치 반환
 FVector AAISpawnVolume::GetRandomPointInBox()
 {
-	FVector Center = SpawningBox->GetComponentLocation();
-	FVector Extents = SpawningBox->GetScaledBoxExtent();
-
-	// UKismetMathLibrary를 사용하면 박스 범위 내 랜덤 위치를 쉽게 구할 수 있다.
-	return UKismetMathLibrary::RandomPointInBoundingBox(Center, Extents);
+	FVector Center = SpawningBox->GetComponentLocation();// 박스의 중심 위치
+	FVector Extents = SpawningBox->GetScaledBoxExtent(); // 박스의 반지름 크기
+	return UKismetMathLibrary::RandomPointInBoundingBox(Center, Extents); // 랜덤 위치 계산
 }
 
+// 실제 AI 스폰 함수
 void AAISpawnVolume::SpawnAI()
 {
-    if (ActorToSpawn)
-    {
-        UWorld* World = GetWorld();
-        if (World)
-        {
-            FVector SpawnLocation = GetRandomPointInBox();
-            FRotator SpawnRotation = FRotator::ZeroRotator;
+	if (ActorToSpawn) // 스폰할 액터가 지정되어 있는지 확인
+	{
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			FVector SpawnLocation = GetRandomPointInBox(); 
+			FRotator SpawnRotation = FRotator::ZeroRotator; 
 
-            FActorSpawnParameters SpawnParams;
-            SpawnParams.Owner = this;
-            SpawnParams.Instigator = GetInstigator();
-            // 스폰 시 충돌 처리 설정
-            SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.Owner = this;
+			SpawnParams.Instigator = GetInstigator();
+			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
-            AActor* SpawnedActor = World->SpawnActor<AActor>(ActorToSpawn, SpawnLocation, SpawnRotation, SpawnParams);
+			AActor* SpawnedActor = World->SpawnActor<AActor>(ActorToSpawn, SpawnLocation, SpawnRotation, SpawnParams);
 
-            
-            APawn* SpawnedPawn = Cast<APawn>(SpawnedActor);
-            if (SpawnedPawn)
-            {
-                SpawnedPawn->SpawnDefaultController();
-            }
-        }
-    }
+			// 1. AI 캐릭터의 사망 델리게이트에 바인딩
+			ABaseAICharacter* AIChar = Cast<ABaseAICharacter>(SpawnedActor);
+			if (AIChar)
+			{
+				// 이 볼륨의 HandleAIDeath 함수를 등록함
+				AIChar->OnAICharacterDeadDelegate.AddDynamic(this, &AAISpawnVolume::HandleAIDeath);
+			}
+
+			APawn* SpawnedPawn = Cast<APawn>(SpawnedActor);
+			if (SpawnedPawn)
+			{
+				SpawnedPawn->SpawnDefaultController();
+			}
+		}
+	}
 }
 
+// AI 사망 시 실행될 로직 구현
+void AAISpawnVolume::HandleAIDeath(AActor* DeadActor)
+{
+	CurrentLivingAICount--;
+
+	UE_LOG(LogTemp, Log, TEXT("AI Died. Remaining: %d"), CurrentLivingAICount);
+
+	// 모든 AI가 죽었는지 체크
+	if (CurrentLivingAICount <= 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("All AI in Volume Cleared!"));
+
+		// 게임모드에게 게임 종료/UI 출력을 명령
+		if (UWorld* World = GetWorld())
+		{
+			ACharacterGameMode* GM = Cast<ACharacterGameMode>(World->GetAuthGameMode());
+			if (GM)
+			{
+				
+				GM->ClearGame(); // 게임모드에 모든 적이 죽었다고 알림
+			}
+		}
+	}
+}

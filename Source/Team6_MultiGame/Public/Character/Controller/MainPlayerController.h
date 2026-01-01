@@ -12,6 +12,7 @@ class UInputMappingContext;
 class UInputAction;
 class ASquirrelAIController;
 class UUIHUD;
+class UUW_Result;
 
 UENUM(BlueprintType)
 enum class EPlayerRole : uint8
@@ -142,4 +143,17 @@ public:
 
 	void UpdateHUD_HP(float CurHP, float MaxHP);
 
+	/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Result")
+	TSubclassOf<UUW_Result> ResultWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UUW_Result> ResultWidget;
+
+	UFUNCTION(Client, Reliable)
+	void Client_ShowResult(bool bIsRestart, bool bClear);
+
+protected:
+	void ShowResult(bool bIsRestart, bool bClear);
+	/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
 };

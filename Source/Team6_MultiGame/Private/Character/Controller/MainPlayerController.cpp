@@ -7,6 +7,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Character/Squirrel.h"
 #include "UI/UIHUD.h"
+#include "UI/UW_Result.h"
 
 
 
@@ -474,3 +475,39 @@ void AMainPlayerController::GetLifetimeReplicatedProps(
 	DOREPLIFETIME(AMainPlayerController, TargetSquirrel);
 
 }
+
+/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
+void AMainPlayerController::Client_ShowResult_Implementation(bool bIsRestart, bool bClear)
+{
+	SetPause(true);
+	ShowResult(bIsRestart, bClear);
+}
+
+void AMainPlayerController::ShowResult(bool bIsRestart, bool bClear)
+{
+	if (UIHUD)
+	{
+		UIHUD->RemoveFromParent();
+		UIHUD = nullptr;
+	}
+	
+	if (ResultWidget)
+	{
+		ResultWidget->RemoveFromParent();
+		ResultWidget = nullptr;
+	}
+
+	if (ResultWidgetClass)
+	{
+		UUW_Result* ResultUI = CreateWidget<UUW_Result>(this, ResultWidgetClass);
+		if (ResultUI)
+		{
+			ResultUI->AddToViewport();
+			bShowMouseCursor = true;
+			SetInputMode(FInputModeUIOnly());
+			ResultUI->SetTitleText(bClear);
+			ResultWidget = ResultUI;
+		}
+	}
+}
+/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////

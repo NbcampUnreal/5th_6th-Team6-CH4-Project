@@ -18,10 +18,16 @@ ALobbyGameModeBase::ALobbyGameModeBase()
 
 void ALobbyGameModeBase::AssignLeaderIfNeeded()
 {
-    if (!HasAuthority()) return;
+    if (!HasAuthority())
+    {
+        return;
+    }
 
     AGameStateBase* GS = GameState;
-    if (!GS) return;
+    if (!GS)
+    {
+        return;
+    }
 
     // 현재 리더가 존재하는지 확인
     ALobbyPlayerState* CurrentLeader = nullptr;
@@ -68,7 +74,6 @@ void ALobbyGameModeBase::AssignLeaderIfNeeded()
         }
     }
 
-    // 여기까지 왔으면 아직 PlayerState 준비 전이거나 배열이 비었을 수 있음
     UE_LOG(LogTemp, Warning, TEXT("[LobbyGM] AssignLeaderIfNeeded: no valid LobbyPlayerState yet"));
 }
 
@@ -80,7 +85,7 @@ void ALobbyGameModeBase::PostLogin(APlayerController* NewPlayer)
 	{
 		PS->SetReady(false);
         EnsureVoiceRoomId();
-        PS->SetVoiceRoomId(VoiceRoomId); //  클라로 복제됨
+        PS->SetVoiceRoomId(VoiceRoomId);
 	}
 
     // 추가: 리더 지정
@@ -103,16 +108,29 @@ void ALobbyGameModeBase::Logout(AController* Exiting)
 bool ALobbyGameModeBase::AreAllPlayersReady() const
 {
 	const AGameStateBase* GS = GameState;
-	if (!GS) return false;
+    if (!GS)
+    {
+        return false;
+    }
 
-	if (GS->PlayerArray.Num() < MinPlayersToStart)
-		return false;
+    if (GS->PlayerArray.Num() < MinPlayersToStart)
+    {
+        return false;
+    }
 
 	for (APlayerState* PSBase : GS->PlayerArray)
 	{
 		const ALobbyPlayerState* LPS = Cast<ALobbyPlayerState>(PSBase);
-		if (!LPS) return false;
-		if (!LPS->bReady) return false;
+
+        if (!LPS)
+        {
+            return false;
+        }
+
+        if (!LPS->bReady)
+        {
+            return false;
+        }
 	}
 
 	return true;
@@ -122,7 +140,11 @@ void ALobbyGameModeBase::TryStartGame()
 {
 	UE_LOG(LogTemp, Warning, TEXT("[LobbyGM] TryStartGame called. HasAuth=%d"), HasAuthority());
 
-	if (!HasAuthority()) return;
+    if (!HasAuthority())
+    {
+        return;
+    }
+
 	if (bGameStarting)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[LobbyGM] Already starting."));
@@ -141,7 +163,10 @@ void ALobbyGameModeBase::TryStartGame()
 
 void ALobbyGameModeBase::StartGame()
 {
-	if (!HasAuthority()) return;
+    if (!HasAuthority())
+    {
+        return;
+    }
 
 	const FString TravelURL = TEXT("/Game/Maps/L_WaveMap");
 	UE_LOG(LogTemp, Warning, TEXT("[LobbyGM] ServerTravel -> %s"), *TravelURL);
@@ -152,11 +177,14 @@ void ALobbyGameModeBase::StartGame()
 
 void ALobbyGameModeBase::EnsureVoiceRoomId()
 {
-    if (!HasAuthority()) return;
+    if (!HasAuthority())
+    {
+        return;
+    }
 
     if (VoiceRoomId.IsEmpty())
     {
-        // 매치마다 고유 RoomId (원하면 Prefix로 프로젝트명/맵명 붙여도 됨)
+        // 매치마다 고유 RoomId
         VoiceRoomId = FString::Printf(TEXT("TEAM6_%s"), *FGuid::NewGuid().ToString(EGuidFormats::Digits));
         UE_LOG(LogTemp, Warning, TEXT("[LobbyGM] VoiceRoomId created: %s"), *VoiceRoomId);
     }

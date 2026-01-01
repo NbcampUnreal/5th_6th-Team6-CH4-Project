@@ -8,7 +8,7 @@
 
 class UTextBlock;
 class UButton;
-
+class AMainPlayerController;
 /**
  * 
  */
@@ -36,4 +36,13 @@ private:
 
 	UFUNCTION()
 	void OnExitClicked();
+
+	/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
+private:
+	TWeakObjectPtr<AMainPlayerController> Player;
+
+public:
+	void SetTitleText(bool bClear);
+
+	/////////////////////////////////////////////////   수정   /////////////////////////////////////////////////
 };

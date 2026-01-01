@@ -1,6 +1,6 @@
 
 #include "Server/TitlePlayerController.h"
-#include "GameFramework/PlayerState.h" //  추가
+#include "GameFramework/PlayerState.h"
 #include "Server/LobbyPlayerState.h"
 #include "Server/TitleGameModeBase.h"
 #include "Blueprint/UserWidget.h"
@@ -15,7 +15,9 @@ void ATitlePlayerController::BeginPlay()
 	Super::BeginPlay();
 
 	if (!IsLocalController())
+	{
 		return;
+	}
 
 	if (UIWidgetClass)
 	{
@@ -44,7 +46,6 @@ void ATitlePlayerController::JoinServer(const FString& InAddress)
 		return;
 	}
 
-	// 타이틀 UI가 남아있지 않게 정리(권장)
 	if (UIWidgetInstance)
 	{
 		UIWidgetInstance->RemoveFromParent();

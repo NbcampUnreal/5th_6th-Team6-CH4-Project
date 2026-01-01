@@ -22,12 +22,18 @@ public:
 	//virtual void BeginPlay() override;
 	
 
-	// ÇÃ·¹ÀÌ¾î Á¢¼Ó ½Ã È£Ãâ
+	// ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ È£ï¿½ï¿½
 	virtual void PostLogin(APlayerController* NewPlayer) override;
+
+	/////////////////////////////////////////////////   ï¿½ï¿½ï¿½ï¿½   /////////////////////////////////////////////////
+	void ClearGame();
+	void EndGame();
+	void GameOver(bool bClear);
+	/////////////////////////////////////////////////   ï¿½ï¿½ï¿½ï¿½   /////////////////////////////////////////////////
 
 protected:
 	
-	// ·¹º§¿¡ ¹èÄ¡µÈ ´Ù¶÷Áã
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ä¡ï¿½ï¿½ ï¿½Ù¶ï¿½ï¿½ï¿½
 	UPROPERTY()
 	ASquirrel* TargetSquirrel;
 
