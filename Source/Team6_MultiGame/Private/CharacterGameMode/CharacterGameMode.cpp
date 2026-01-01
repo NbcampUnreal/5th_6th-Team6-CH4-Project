@@ -123,7 +123,7 @@ void ACharacterGameMode::Logout(AController* Exiting)
     }
 
     UE_LOG(LogTemp, Warning, TEXT("[GM] Logout Role=%s"), RoleText);
-
+    EndGame();
     Super::Logout(Exiting);
 }
 
