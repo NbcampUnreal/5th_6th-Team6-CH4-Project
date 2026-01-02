@@ -4,6 +4,7 @@
 #include "GameFramework/PlayerState.h"
 
 
+
 void ACharacterGameState::AddKillCount(int32 Delta)
 {
 	if (!HasAuthority())
@@ -14,21 +15,20 @@ void ACharacterGameState::AddKillCount(int32 Delta)
 
 void ACharacterGameState::OnRep_KillCount()
 {
-	for (APlayerState* PS : PlayerArray)
-	{
-		if (!PS) continue;
+    // 클라이언트에서 "자기 로컬 PC" 찾아 HUD 갱신
+    UWorld* World = GetWorld();
+    if (!World) return;
 
-		AController* OwnerController = Cast<AController>(PS->GetOwner());
-		if (!OwnerController) continue;
+    for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
+    {
+        APlayerController* PC = It->Get();
+        if (!PC || !PC->IsLocalController()) continue;
 
-		AMainPlayerController* PC = Cast<AMainPlayerController>(OwnerController);
-		if (!PC) continue;
-
-		if (PC->IsLocalController())
-		{
-			PC->UpdateHUD_KillCount(KillCount);
-		}
-	}
+        if (AMainPlayerController* MPC = Cast<AMainPlayerController>(PC))
+        {
+            MPC->UpdateHUD_KillCount(KillCount);
+        }
+    }
 }
 
 void ACharacterGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

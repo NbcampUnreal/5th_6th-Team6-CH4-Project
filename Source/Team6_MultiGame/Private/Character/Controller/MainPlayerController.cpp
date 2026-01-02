@@ -72,6 +72,13 @@ void AMainPlayerController::BeginPlay()
 		UIHUD->AddToViewport();
 	}
 
+	if (IsLocalController())
+	{
+		if (ACharacterGameState* GS = GetWorld()->GetGameState<ACharacterGameState>())
+		{
+			UpdateHUD_KillCount(GS->KillCount);
+		}
+	}
 }
 
 /* ===================== Input Binding ===================== */

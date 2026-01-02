@@ -5,6 +5,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "CharacterGameMode/CharacterGameState.h"
 
 ABaseAICharacter::ABaseAICharacter()
 {
@@ -186,6 +187,12 @@ void ABaseAICharacter::Die()
     if (!HasAuthority() || bIsDead) return;
 
     bIsDead = true;
+
+    // === AI 사망 시 전체 킬카운트 +1 (서버에서만) ===
+    if (ACharacterGameState* GS = GetWorld()->GetGameState<ACharacterGameState>())
+    {
+        GS->AddKillCount(1);
+    }
 
     ABaseAIController* AICon = Cast<ABaseAIController>(GetController());
     if (AICon) AICon->OnAICharacterDead();
