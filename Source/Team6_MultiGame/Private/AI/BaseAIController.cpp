@@ -103,31 +103,17 @@ void ABaseAIController::OnDamagedByPlayer(AActor* Attacker)
 {
     if (!HasAuthority() || !Attacker || !GetPawn()) return;
 
-    // 1. 현재 모든 동작 중지
+   
     StopMovement();
 
-    // 2. 타겟을 향한 회전값 직접 계산
-    FVector Dir = Attacker->GetActorLocation() - GetPawn()->GetActorLocation();
-    Dir.Z = 0.0f;
-    FRotator TargetRot = Dir.Rotation();
-
-    
-    SetControlRotation(TargetRot);
-
-    
     UBlackboardComponent* BBComp = GetBlackboardComponent();
     if (BBComp)
     {
         BBComp->SetValueAsObject(TargetActorKeyName, Attacker);
 
-      
-        SetFocus(Attacker, EAIFocusPriority::Gameplay);
+       
     }
 
-   
-    GetPawn()->SetActorRotation(TargetRot);
-
-   
     if (AIPerception)
     {
         AIPerception->RequestStimuliListenerUpdate();
