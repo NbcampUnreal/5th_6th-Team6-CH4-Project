@@ -24,8 +24,7 @@ public:
 
 	void HandleFire(const FVector& AimRot);
 
-	UFUNCTION(NetMulticast, Unreliable)
-	void Multicast_DrawDebugFire(const FVector& Start, const FVector& End);
+
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<class AALCProjectileBase> ProjectileClass;

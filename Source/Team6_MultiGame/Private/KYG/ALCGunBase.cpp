@@ -115,9 +115,7 @@ void AALCGunBase::HandleFire(const FVector& AimPoint)
         MuzzleLoc = GunMesh->GetSocketLocation(MuzzleSocketName);
     }
 
-    // 여기 추가: 총구->AimPoint 디버그 라인 (클라에 보이게) 
-    Multicast_DrawDebugFire(MuzzleLoc, AimPoint);
-
+  
     // 2) "총구 -> AimPoint" 방향 계산 (이게 핵심)
     FVector ShootDir = (AimPoint - MuzzleLoc).GetSafeNormal();
 
@@ -230,35 +228,3 @@ void AALCGunBase::HandleFire(const FVector& AimPoint)
    // }
 
 
-void AALCGunBase::Multicast_DrawDebugFire_Implementation(const FVector& Start, const FVector& End)
-{
-    UWorld* World = GetWorld();
-    if (!World) return;
-
-    UE_LOG(LogTemp, Warning, TEXT("[GunDebug] %s Start=%s End=%s"),
-        *GetName(), *Start.ToString(), *End.ToString());
-
-    const float LifeTime = 10.0f;
-    const float Thickness = 2.0f;
-
-    DrawDebugLine(
-        World,
-        Start,
-        End,
-        FColor::Red,
-        false,
-        LifeTime,
-        0,
-        Thickness
-    );
-
-    DrawDebugSphere(
-        World,
-        End,
-        8.f,
-        12,
-        FColor::Red,
-        false,
-        LifeTime
-    );
-}
