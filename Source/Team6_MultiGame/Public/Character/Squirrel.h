@@ -59,10 +59,10 @@ public:
 
 	// 대쉬 “활성 유지 시간”(애님 길이에 맞춰 조절)
 	UPROPERTY(EditDefaultsOnly, Category = "Dash")
-	float DashActiveTime = 1.2f;
+	float DashActiveTime = 0.6f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Dash")
-	float DashCooldownTime = 5.f;
+	float DashCooldownTime = 4.f;
 
 	void EndDash_ServerAuth();
 
