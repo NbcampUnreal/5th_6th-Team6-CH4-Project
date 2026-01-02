@@ -9,7 +9,7 @@
 #include "UI/UIHUD.h"
 #include "UI/UW_Result.h"
 #include "CharacterGameMode/CharacterGameMode.h"
-
+#include "CharacterGameMode/CharacterGameState.h"
 
 
 AMainPlayerController::AMainPlayerController()
@@ -521,6 +521,17 @@ void AMainPlayerController::GetLifetimeReplicatedProps(
 void AMainPlayerController::Client_ShowResult_Implementation(bool bIsRestart, bool bClear)
 {
 	ShowResult(bIsRestart, bClear);
+}
+
+void AMainPlayerController::UpdateHUD_KillCount(int32 NewKillCount)
+{
+	if (!IsLocalController())
+		return;
+
+	if (UIHUD)
+	{
+		UIHUD->UpdateKillCount(NewKillCount);
+	}
 }
 
 void AMainPlayerController::ShowResult(bool bIsRestart, bool bClear)

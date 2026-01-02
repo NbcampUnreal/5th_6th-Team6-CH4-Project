@@ -161,6 +161,8 @@ public:
 	UFUNCTION(Server, Reliable)
 	void Server_RequestReturnToLobby();
 
+	void UpdateHUD_KillCount(int32 NewKillCount);
+
 protected:
 	void ShowResult(bool bIsRestart, bool bClear);
 	/////////////////////////////////////////////////   ¼öÁ¤   /////////////////////////////////////////////////
