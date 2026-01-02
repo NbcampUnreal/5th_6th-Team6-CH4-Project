@@ -2,6 +2,7 @@
 #include "UI/UW_HPBar.h"
 #include "UI/UW_KeyGuide.h"
 #include "Character/Squirrel.h"
+#include "UI/UW_KillCount.h"
 
 void UUIHUD::NativeConstruct()
 {
@@ -29,5 +30,13 @@ void UUIHUD::ResetAllKeys()
 	if (KeyGuideWidget)
 	{
 		KeyGuideWidget->ResetAllKeys();
+	}
+}
+
+void UUIHUD::UpdateKillCount(int32 NewKillCount)
+{
+	if (KillCountWidget)
+	{
+		KillCountWidget->SetKillCount(NewKillCount);
 	}
 }

@@ -33,11 +33,9 @@ public:
 	void ReturnToLobby();
 
 protected:
-	
+
 	UPROPERTY()
 	ASquirrel* TargetSquirrel;
 
 	int32 PlayerIndex = 0;
-
-	
 };

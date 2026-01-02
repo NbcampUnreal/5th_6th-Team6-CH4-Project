@@ -19,4 +19,15 @@ public:
     UPROPERTY(BlueprintReadOnly)
     bool GmaeClear = false;
 
+	UPROPERTY(ReplicatedUsing = OnRep_KillCount, BlueprintReadOnly)
+	int32 KillCount = 0;
+
+	void AddKillCount(int32 Delta = 1);
+
+protected:
+
+	UFUNCTION()
+	void OnRep_KillCount();
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };
