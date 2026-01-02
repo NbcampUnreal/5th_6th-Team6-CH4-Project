@@ -130,10 +130,6 @@ void AMainPlayerController::SetupInputComponent()
 		EIC->BindAction(IA_MouseR, ETriggerEvent::Completed, this, &AMainPlayerController::OnMouseRCompleted);
 	}*/
 
-	if (IA_Fire)
-	{
-		
-	}
 
 	
 	// ===== Jump =====
@@ -316,6 +312,8 @@ void AMainPlayerController::OnMoveCompleted(const FInputActionValue&)
 
 void AMainPlayerController::OnMouseLTriggered(const FInputActionValue&)
 {
+	if (PlayerRole != EPlayerRole::Fire)
+		return;
 	if (UIHUD)
 	{
 		UIHUD->SetKeyPressed("MouseL", true);
@@ -324,6 +322,8 @@ void AMainPlayerController::OnMouseLTriggered(const FInputActionValue&)
 
 void AMainPlayerController::OnMouseLCompleted(const FInputActionValue&)
 {
+	if (PlayerRole != EPlayerRole::Fire)
+		return;
 	if (UIHUD)
 	{
 		UIHUD->SetKeyPressed("MouseL", false);
