@@ -181,23 +181,37 @@ void ABaseAICharacter::MulticastPlayHitMontage_Implementation()
     }
 }
 
-void ABaseAICharacter::Die() 
+void ABaseAICharacter::Die()
 {
+    // 이미 죽었거나 서버가 아니면 중단
     if (!HasAuthority() || bIsDead) return;
 
     bIsDead = true;
 
+   
     ABaseAIController* AICon = Cast<ABaseAIController>(GetController());
-    if (AICon) AICon->OnAICharacterDead();
+    if (AICon)
+    {
+        AICon->OnAICharacterDead();
+    }
 
+    
+    if (OnAICharacterDeadDelegate.IsBound())
+    {
+        OnAICharacterDeadDelegate.Broadcast(this);
+    }
+
+   
     if (GetCharacterMovement())
     {
         GetCharacterMovement()->StopMovementImmediately();
         GetCharacterMovement()->DisableMovement();
     }
 
+   
     GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
+    
     MulticastPlayDeath();
 }
 void ABaseAICharacter::MulticastPlayDeath_Implementation()
