@@ -96,16 +96,20 @@ void AAISpawnVolume::HandleAIDeath(AActor* DeadActor)
 	if (!HasAuthority()) return;
 
 	CurrentLivingAICount--;
+	// 로그 출력
+	UE_LOG(LogTemp, Warning, TEXT("[SpawnVolume] AI Died. Remaining: %d, SpawnedSoFar: %d/%d"),
+		CurrentLivingAICount, SpawnedSoFarCount, MaxAIInstanceCount);
 
-	if (SpawnedSoFarCount >= MaxAIInstanceCount && CurrentLivingAICount <= 0)
+	// 1. 더 이상 스폰할 예정이 없는지 확인 (타이머가 끝났거나 카운트를 채웠거나)
+	bool bNoMoreSpawning = (SpawnedSoFarCount >= MaxAIInstanceCount) || !GetWorld()->GetTimerManager().IsTimerActive(SpawnTimerHandle);
+
+	// 2. 스폰이 끝났고 + 살아있는 놈이 0이라면 클리어!
+	if (bNoMoreSpawning && CurrentLivingAICount <= 0)
 	{
-		if (UWorld* World = GetWorld())
+		ACharacterGameMode* GM = Cast<ACharacterGameMode>(GetWorld()->GetAuthGameMode());
+		if (GM)
 		{
-			ACharacterGameMode* GM = Cast<ACharacterGameMode>(World->GetAuthGameMode());
-			if (GM)
-			{
-				GM->ClearGame();
-			}
+			GM->ClearGame();
 		}
 	}
 }
