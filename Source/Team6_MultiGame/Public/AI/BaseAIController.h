@@ -16,10 +16,9 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
     class UBehaviorTree* BehaviorTreeAsset;
 
-    // AI가 죽었을 때 호출
     void OnAICharacterDead();
 
-    // [추가] 피격 시 시야를 넓히고 공격자를 바라보게 하는 함수
+    // 피격 시 시야를 넓히고 공격자를 바라보게 하는 함수
     void OnDamagedByPlayer(AActor* Attacker);
 
 protected:

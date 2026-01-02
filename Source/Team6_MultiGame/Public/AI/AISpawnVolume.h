@@ -25,11 +25,17 @@ protected:
 
 	// 한 번에 스폰할 AI의 총 마리 수 (에디터에서 수정 가능)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spawning")
-	int32 MaxAIInstanceCount = 5;
+	int32 MaxAIInstanceCount = 10;
 
 	// 스폰 간격 조절
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spawning")
-	float SpawnInterval = 2.0f;
+	float SpawnInterval = 4.0f;
+
+	// 지금까지 스폰을 시도한 총 횟수
+	int32 SpawnedSoFarCount;
+
+	//  순차 스폰 타이머를 관리할 핸들
+	FTimerHandle SpawnTimerHandle;
 
 	// 현재 살아있는 AI 숫자를 저장할 변수
 	int32 CurrentLivingAICount;
