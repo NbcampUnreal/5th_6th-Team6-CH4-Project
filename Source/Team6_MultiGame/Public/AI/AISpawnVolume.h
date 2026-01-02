@@ -38,6 +38,7 @@ protected:
 	FTimerHandle SpawnTimerHandle;
 
 	// 현재 살아있는 AI 숫자를 저장할 변수
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spawning")
 	int32 CurrentLivingAICount;
 
 	// AI가 죽었을 때 호출되는 함수

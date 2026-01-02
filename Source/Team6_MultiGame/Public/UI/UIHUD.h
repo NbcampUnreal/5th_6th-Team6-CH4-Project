@@ -7,6 +7,7 @@
 class UUW_HPBar;
 class UUW_KeyGuide;
 class UUW_Crosshair;
+class UUW_KillCount;
 
 UCLASS()
 class TEAM6_MULTIGAME_API UUIHUD : public UUserWidget
@@ -28,6 +29,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ResetAllKeys();
 
+	UFUNCTION(BlueprintCallable)
+	void UpdateKillCount(int32 NewKillCount);
+
 protected:
 
 	UPROPERTY(meta = (BindWidget))
@@ -38,6 +42,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UUW_Crosshair> CrosshairWidget;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UUW_KillCount> KillCountWidget;
 
 
 };
