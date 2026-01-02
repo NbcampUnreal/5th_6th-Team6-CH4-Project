@@ -16,8 +16,8 @@ ABaseAIController::ABaseAIController()
     SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
     if (SightConfig)
     {
-        SightConfig->SightRadius = 500.0f;
-        SightConfig->LoseSightRadius = 700.0f;
+        SightConfig->SightRadius = 1200.0f;
+        SightConfig->LoseSightRadius = 1500.0f;
         SightConfig->PeripheralVisionAngleDegrees = 90.0f;
         SightConfig->DetectionByAffiliation.bDetectEnemies = true;
         SightConfig->DetectionByAffiliation.bDetectNeutrals = true;
@@ -41,7 +41,7 @@ ABaseAIController::ABaseAIController()
     }
 }
 
-void ABaseAIController::OnPossess(APawn* InPawn)
+void ABaseAIController::OnPossess(APawn* InPawn) 
 {
     Super::OnPossess(InPawn);
     if (HasAuthority())
@@ -64,11 +64,11 @@ void ABaseAIController::OnTargetDetected(AActor* Actor, FAIStimulus Stimulus)
     UBlackboardComponent* BBComp = GetBlackboardComponent();
     if (!BBComp) return;
 
-    // [수정] 몬스터끼리 서로 인식하지 않도록 Player 태그 검사 강화
     if (!Actor->ActorHasTag(TEXT("Player"))) return;
 
     if (Stimulus.WasSuccessfullySensed())
     {
+        // 플레이어를 감지했을 때
         if (Stimulus.Type == UAISense::GetSenseID<UAISense_Sight>())
         {
             BBComp->SetValueAsObject(TargetActorKeyName, Actor);
@@ -76,19 +76,24 @@ void ABaseAIController::OnTargetDetected(AActor* Actor, FAIStimulus Stimulus)
         }
         else if (Stimulus.Type == UAISense::GetSenseID<UAISense_Hearing>())
         {
+            
             if (BBComp->GetValueAsObject(TargetActorKeyName) == nullptr)
             {
                 BBComp->SetValueAsVector(TargetLocationKeyName, Stimulus.StimulusLocation);
             }
         }
     }
-    else // 시야에서 놓쳤을 때
+    else
     {
+		//  플레이어를 놓쳤을 때
         if (Stimulus.Type == UAISense::GetSenseID<UAISense_Sight>())
         {
             ClearFocus(EAIFocusPriority::Gameplay);
+
+			//  마지막 위치 저장
             BBComp->SetValueAsVector(TargetLocationKeyName, Actor->GetActorLocation());
-            // 일정 시간 후 타겟을 완전히 지우는 로직은 서비스(BT Service)에서 처리하는 것이 좋습니다.
+			// 타겟 초기화
+            BBComp->ClearValue(TargetActorKeyName);
         }
     }
 }
@@ -96,24 +101,36 @@ void ABaseAIController::OnTargetDetected(AActor* Actor, FAIStimulus Stimulus)
 // 피격 시 호출되는 로직
 void ABaseAIController::OnDamagedByPlayer(AActor* Attacker)
 {
-    if (!HasAuthority() || !Attacker) return;
+    if (!HasAuthority() || !Attacker || !GetPawn()) return;
 
-   
-    if (!Attacker->ActorHasTag(TEXT("Player"))) return;
+    // 1. 현재 모든 동작 중지
+    StopMovement();
 
+    // 2. 타겟을 향한 회전값 직접 계산
+    FVector Dir = Attacker->GetActorLocation() - GetPawn()->GetActorLocation();
+    Dir.Z = 0.0f;
+    FRotator TargetRot = Dir.Rotation();
+
+    
+    SetControlRotation(TargetRot);
+
+    
     UBlackboardComponent* BBComp = GetBlackboardComponent();
     if (BBComp)
     {
         BBComp->SetValueAsObject(TargetActorKeyName, Attacker);
-        SetFocus(Attacker); 
+
+      
+        SetFocus(Attacker, EAIFocusPriority::Gameplay);
     }
 
-    // 시야 범위 일시적 확장 (경계 태세)
-    if (SightConfig && AIPerception)
+   
+    GetPawn()->SetActorRotation(TargetRot);
+
+   
+    if (AIPerception)
     {
-        SightConfig->SightRadius = 1000.0f;
-        SightConfig->LoseSightRadius = 1200.0f;
-        AIPerception->ConfigureSense(*SightConfig);
+        AIPerception->RequestStimuliListenerUpdate();
     }
 }
 

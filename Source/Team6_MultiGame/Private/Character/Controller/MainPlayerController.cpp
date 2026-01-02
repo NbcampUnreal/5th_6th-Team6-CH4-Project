@@ -15,6 +15,7 @@
 AMainPlayerController::AMainPlayerController()
 {
 	bReplicates = true;
+	PlayerRole = EPlayerRole::None;
 }
 
 void AMainPlayerController::BeginPlay()
@@ -117,22 +118,19 @@ void AMainPlayerController::SetupInputComponent()
 	{
 		EIC->BindAction(IA_MouseL, ETriggerEvent::Triggered, this, &AMainPlayerController::OnMouseLTriggered);
 		EIC->BindAction(IA_MouseL, ETriggerEvent::Completed, this, &AMainPlayerController::OnMouseLCompleted);
-	}
-
-	if (IA_MouseR)
-	{
-		EIC->BindAction(IA_MouseR, ETriggerEvent::Triggered, this, &AMainPlayerController::OnMouseRTriggered);
-		EIC->BindAction(IA_MouseR, ETriggerEvent::Completed, this, &AMainPlayerController::OnMouseRCompleted);
-	}
-
-	if (IA_Fire)
-	{
 		EIC->BindAction(IA_Fire, ETriggerEvent::Started, this, &AMainPlayerController::OnFireStarted);
 	}
 	else
 	{
 		UE_LOG(LogTemp, Warning, TEXT("MainPlayerController: IA_Fire is NULL"));
 	}
+	/*if (IA_MouseR)
+	{
+		EIC->BindAction(IA_MouseR, ETriggerEvent::Triggered, this, &AMainPlayerController::OnMouseRTriggered);
+		EIC->BindAction(IA_MouseR, ETriggerEvent::Completed, this, &AMainPlayerController::OnMouseRCompleted);
+	}*/
+
+
 	
 	// ===== Jump =====
 	if (IA_Jump)
@@ -314,6 +312,8 @@ void AMainPlayerController::OnMoveCompleted(const FInputActionValue&)
 
 void AMainPlayerController::OnMouseLTriggered(const FInputActionValue&)
 {
+	if (PlayerRole != EPlayerRole::Fire)
+		return;
 	if (UIHUD)
 	{
 		UIHUD->SetKeyPressed("MouseL", true);
@@ -322,27 +322,29 @@ void AMainPlayerController::OnMouseLTriggered(const FInputActionValue&)
 
 void AMainPlayerController::OnMouseLCompleted(const FInputActionValue&)
 {
+	if (PlayerRole != EPlayerRole::Fire)
+		return;
 	if (UIHUD)
 	{
 		UIHUD->SetKeyPressed("MouseL", false);
 	}
 }
 
-void AMainPlayerController::OnMouseRTriggered(const FInputActionValue&)
-{
-	if (UIHUD)
-	{
-		UIHUD->SetKeyPressed("MouseR", true);
-	}
-}
-
-void AMainPlayerController::OnMouseRCompleted(const FInputActionValue&)
-{
-	if (UIHUD)
-	{
-		UIHUD->SetKeyPressed("MouseR", false);
-	}
-}
+//void AMainPlayerController::OnMouseRTriggered(const FInputActionValue&)
+//{
+//	if (UIHUD)
+//	{
+//		UIHUD->SetKeyPressed("MouseR", true);
+//	}
+//}
+//
+//void AMainPlayerController::OnMouseRCompleted(const FInputActionValue&)
+//{
+//	if (UIHUD)
+//	{
+//		UIHUD->SetKeyPressed("MouseR", false);
+//	}
+//}
 
 void AMainPlayerController::OnPossess(APawn* InPawn)
 {
@@ -391,7 +393,7 @@ void AMainPlayerController::OnLookTriggered(const FInputActionValue& Value)
 
 void AMainPlayerController::OnFireStarted(const FInputActionValue& Value)
 {
-	if (PlayerRole != EPlayerRole::Camera)
+	if (PlayerRole != EPlayerRole::Fire)
 		return;
 
 	if (!TargetSquirrel)
@@ -439,7 +441,7 @@ void AMainPlayerController::OnSprintCompleted(const FInputActionValue& Value)
 
 void AMainPlayerController::OnDashStarted(const FInputActionValue& Value)
 {
-	if (PlayerRole != EPlayerRole::Move2 || !TargetSquirrel)
+	if (PlayerRole != EPlayerRole::Move1 || !TargetSquirrel)
 		return;
 
 	// 클라 -> 서버로 대쉬 요청
@@ -468,13 +470,13 @@ void AMainPlayerController::Server_SendLook_Implementation(const FVector2D& Look
 void AMainPlayerController::Server_SendFire_Implementation()
 {
 	// 서버에서도 역할 체크(치트/실수 방지)
-	if (PlayerRole != EPlayerRole::Camera)
+	if (PlayerRole != EPlayerRole::Fire)
 		return;
 
 	if (TargetSquirrel)
 	{
 		TargetSquirrel->Fire_ServerAuth();
-		UE_LOG(LogTemp, Warning, TEXT("[Camera] Fire:Fire_ServerAuth()"));
+		UE_LOG(LogTemp, Warning, TEXT("[Fire] Fire:Fire_ServerAuth()"));
 	}
 }
 
@@ -496,7 +498,7 @@ void AMainPlayerController::Server_SendSprint_Implementation(bool bSprinting)
 void AMainPlayerController::Server_SendDash_Implementation()
 {
 	// 서버에서도 역할 체크
-	if (PlayerRole != EPlayerRole::Move2 || !TargetSquirrel)
+	if (!TargetSquirrel)
 		return;
 
 	TargetSquirrel->RequestDash_ServerAuth(); // 아래 2)에서 구현

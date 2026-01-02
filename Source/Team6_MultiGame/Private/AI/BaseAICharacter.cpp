@@ -130,23 +130,55 @@ float ABaseAICharacter::TakeDamage(float DamageAmount, FDamageEvent const& Damag
     if (bIsDead) return 0.f;
 
     float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+    // 데미지 적용 및 체력 클램핑
     CurrentHP = FMath::Clamp(CurrentHP - ActualDamage, 0.f, MaxHP);
 
-    // 피격 시 AI 컨트롤러를 깨워서 공격자를 보게 함 (경계 상태 돌입)
-    if (ActualDamage > 0.f && DamageCauser)
+    if (ActualDamage > 0.f)
     {
-        ABaseAIController* AIC = Cast<ABaseAIController>(GetController());
-        if (AIC)
+        // 1. 모든 클라이언트에서 피격 애니메이션 재생
+        MulticastPlayHitMontage();
+
+        // 2. 공격자가 있을 경우 컨트롤러 로직 실행 (서버에서만 실행)
+        if (DamageCauser)
         {
-            AIC->OnDamagedByPlayer(DamageCauser);
+            ABaseAIController* AIC = Cast<ABaseAIController>(GetController());
+            if (AIC)
+            {
+                AIC->OnDamagedByPlayer(DamageCauser);
+            }
         }
     }
 
+    // 사망 판정
     if (CurrentHP <= 0.f)
     {
         Die();
     }
+
     return ActualDamage;
+}
+
+// 모든 클라이언트에서 피격 몽타주 재생
+void ABaseAICharacter::MulticastPlayHitMontage_Implementation()
+{
+   
+    if (bIsDead || !GetMesh()) return;
+
+    UAnimInstance* AnimInst = GetMesh()->GetAnimInstance();
+    if (!AnimInst) return;
+
+    
+    if (AppearancePresets.IsValidIndex(SelectedAppearanceIndex))
+    {
+        UAnimMontage* HitMontage = AppearancePresets[SelectedAppearanceIndex].HitMontage;
+
+        if (HitMontage)
+        {
+            
+            AnimInst->Montage_Play(HitMontage);
+        }
+    }
 }
 
 void ABaseAICharacter::Die() 
@@ -223,11 +255,11 @@ void ABaseAICharacter::TriggerDissolveEffect()
     if (!MeshComp) return;
 
    
-    MeshComp->SetPlayRate(0.0f); // 재생 속도 0
+    MeshComp->SetPlayRate(0.0f); 
     UAnimInstance* AnimInst = MeshComp->GetAnimInstance();
     if (AnimInst)
     {
-        AnimInst->Montage_Pause(nullptr); // 현재 재생 중인 모든 몽타주 일시정지
+        AnimInst->Montage_Pause(nullptr); 
     }
 
   
@@ -238,7 +270,7 @@ void ABaseAICharacter::TriggerDissolveEffect()
 
     if (DynamicDissolveMaterial)
     {
-        // 4. 블루프린트 타임라인 시작 호출
+        
         BP_StartDissolveEffect();
     }
 }

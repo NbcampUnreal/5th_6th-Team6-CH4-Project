@@ -17,7 +17,7 @@ public:
 	virtual void NativeInitializeAnimation() override;
 
 protected:
-	// 캐릭터로부터 가져올 데이터들
+	
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
 	float GroundSpeed;
 
