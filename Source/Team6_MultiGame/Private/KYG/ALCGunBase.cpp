@@ -11,6 +11,7 @@
 
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
+#include "DrawDebugHelpers.h"
 
 AALCGunBase::AALCGunBase()
 {
@@ -63,29 +64,7 @@ void AALCGunBase::BeginPlay()
 //	HandleFire();	//서버에서 실제 발사 처리
 //}
 
-void AALCGunBase::GetMuzzleTransform(const FRotator& AimRot, FVector& OutLoc, FRotator& OutRot, bool& bOutUsedSocket) const
-{
-    bOutUsedSocket = false;
 
-    // 기본 폴백: 총 액터 위치 + 조준방향 기준 오프셋
-    OutRot = AimRot;
-    OutLoc = GetActorLocation() + AimRot.RotateVector(MuzzleFallbackOffset);
-
-    if (!GunMesh)
-        return;
-
-    if (!GunMesh->DoesSocketExist(MuzzleSocketName))
-        return;
-
-    // StaticMesh 소켓 월드 위치
-    OutLoc = GunMesh->GetSocketLocation(MuzzleSocketName);
-
-    // 회전은 조준을 쓰는 게 보통 정답(카메라/조준과 일치)
-    // "총구의 로컬 방향"을 정확히 쓰고 싶으면 아래로 바꾸면 됨.
-    // OutRot = GunMesh->GetSocketRotation(MuzzleSocketName);
-
-    bOutUsedSocket = true;
-}
 
 void AALCGunBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -95,7 +74,7 @@ void AALCGunBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 }
 
 //서버에서만 실행되는 로직 , 스폰 , 쿨타임 , 속도 등 핵심 
-void AALCGunBase::HandleFire(const FRotator& AimRot)
+void AALCGunBase::HandleFire(const FVector& AimPoint)
 {
     UWorld* World = GetWorld();
     if (!World || !ProjectileClass)
@@ -129,17 +108,26 @@ void AALCGunBase::HandleFire(const FRotator& AimRot)
         return;
     }
 
-    // 총구 위치/회전 가져오기 (카메라 AimRot 기준으로 보정)
-    FVector MuzzleLoc;
-    FRotator MuzzleRot;
-    bool bUsedSocket = false;
-    GetMuzzleTransform(AimRot, MuzzleLoc, MuzzleRot, bUsedSocket);
+    // 1) 총구 위치
+    FVector MuzzleLoc = GetActorLocation();
+    if (GunMesh && GunMesh->DoesSocketExist(MuzzleSocketName))
+    {
+        MuzzleLoc = GunMesh->GetSocketLocation(MuzzleSocketName);
+    }
 
-    // 실제 발사 방향 (카메라 조준 기준으로)
-    const FVector ShootDir = MuzzleRot.Vector();   // 또는 AimRot.Vector();
+  
+    // 2) "총구 -> AimPoint" 방향 계산 (이게 핵심)
+    FVector ShootDir = (AimPoint - MuzzleLoc).GetSafeNormal();
 
-    // 스폰 위치는 무조건 총구
+    // AimPoint가 총구와 너무 가까우면(0벡터 방지) 폴백
+    if (ShootDir.IsNearlyZero())
+    {
+        ShootDir = OwnerPawn->GetActorForwardVector();
+    }
+
     const FVector SpawnLoc = MuzzleLoc;
+    const FRotator SpawnRot = ShootDir.Rotation();
+
 
     FActorSpawnParameters Params;
     Params.Owner = OwnerPawn;
@@ -151,7 +139,7 @@ void AALCGunBase::HandleFire(const FRotator& AimRot)
     AALCProjectileBase* Proj = World->SpawnActor<AALCProjectileBase>(
         ProjectileClass,
         SpawnLoc,
-        ShootDir.Rotation(),   // 또는 MuzzleRot
+        SpawnRot,   // 또는 MuzzleRot
         Params
     );
 
@@ -166,6 +154,12 @@ void AALCGunBase::HandleFire(const FRotator& AimRot)
 
     // 발사체에 데미지/방향 넘기기
     Proj->Init(Damage, ShootDir, BulletSpeed);
+
+    if (BulletSpeed > 0.f && MaxRange > 0.f)
+    {
+        const float LifeTime = MaxRange / BulletSpeed;
+        Proj->SetLifeSpan(LifeTime);
+    }
 
     // 탄 1발 소비 + 마지막 발사 시간 갱신
     CurrentAmmo--;

@@ -11,13 +11,13 @@ ABaseAICharacter::ABaseAICharacter()
     bReplicates = true;
     SetReplicateMovement(true);
 
-    // 기본 스탯 설정
     MaxHP = 100.f;
     CurrentHP = MaxHP;
+    GetCharacterMovement()->MaxWalkSpeed = 300.f;
     AttackRange = 150.f;
     AttackDamage = 10.f;
     bIsDead = false;
-    SelectedAppearanceIndex = -1; // 초기값 설정
+    SelectedAppearanceIndex = -1;
 }
 
 void ABaseAICharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -39,25 +39,21 @@ void ABaseAICharacter::BeginPlay()
 
         if (AppearancePresets.Num() > 0)
         {
-            // 서버에서 외형 결정
             SelectedAppearanceIndex = FMath::RandRange(0, AppearancePresets.Num() - 1);
             ApplyAppearance();
         }
     }
 }
 
-// 클라이언트가 서버로부터 초기 데이터를 모두 받은 후 호출됨 (동기화 보강)
 void ABaseAICharacter::PostNetInit()
 {
     Super::PostNetInit();
-
     if (!HasAuthority() && SelectedAppearanceIndex != -1)
     {
         ApplyAppearance();
     }
 }
 
-// 변수가 서버로부터 복제될 때 호출되는 콜백
 void ABaseAICharacter::OnRep_SelectedAppearanceIndex()
 {
     ApplyAppearance();
@@ -66,30 +62,14 @@ void ABaseAICharacter::OnRep_SelectedAppearanceIndex()
 void ABaseAICharacter::ApplyAppearance()
 {
     USkeletalMeshComponent* MeshComp = GetMesh();
-
-    // 데이터 유효성 검사
-    if (!MeshComp || !AppearancePresets.IsValidIndex(SelectedAppearanceIndex))
-    {
-        return;
-    }
+    if (!MeshComp || !AppearancePresets.IsValidIndex(SelectedAppearanceIndex)) return;
 
     const FAIAppearanceSet& SelectedSet = AppearancePresets[SelectedAppearanceIndex];
 
-    if (SelectedSet.Mesh)
-    {
-        MeshComp->SetSkeletalMeshAsset(SelectedSet.Mesh);
-    }
-
-    if (SelectedSet.AnimBlueprint)
-    {
-        MeshComp->SetAnimInstanceClass(SelectedSet.AnimBlueprint);
-    }
+    if (SelectedSet.Mesh) MeshComp->SetSkeletalMeshAsset(SelectedSet.Mesh);
+    if (SelectedSet.AnimBlueprint) MeshComp->SetAnimInstanceClass(SelectedSet.AnimBlueprint);
 
     MeshComp->InitAnim(true);
-
-    // 로그 확인용
-    FString RoleStr = HasAuthority() ? TEXT("Server") : TEXT("Client");
-    UE_LOG(LogTemp, Log, TEXT("[%s] Appearance Applied Index: %d"), *RoleStr, SelectedAppearanceIndex);
 }
 
 // --- 공격 관련 로직 ---
@@ -125,6 +105,7 @@ void ABaseAICharacter::OnAttackHitCheck()
     FCollisionQueryParams Params;
     Params.AddIgnoredActor(this);
 
+    
     bool bHasHit = GetWorld()->OverlapMultiByChannel(OverlapResults, TraceEnd, FQuat::Identity, ECC_Pawn, SphereShape, Params);
 
     if (bHasHit)
@@ -132,7 +113,9 @@ void ABaseAICharacter::OnAttackHitCheck()
         for (auto& Result : OverlapResults)
         {
             AActor* HitActor = Result.GetActor();
-            if (HitActor && HitActor != this)
+
+           
+            if (HitActor && HitActor != this && HitActor->ActorHasTag(TEXT("Player")))
             {
                 UGameplayStatics::ApplyDamage(HitActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
             }
@@ -140,102 +123,105 @@ void ABaseAICharacter::OnAttackHitCheck()
     }
 }
 
-// --- 데미지 및 사망 로직 ---
+// 데미지 및 사망 로직 
 
 float ABaseAICharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
     if (bIsDead) return 0.f;
 
     float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+    // 데미지 적용 및 체력 클램핑
     CurrentHP = FMath::Clamp(CurrentHP - ActualDamage, 0.f, MaxHP);
 
+    if (ActualDamage > 0.f)
+    {
+        // 1. 모든 클라이언트에서 피격 애니메이션 재생
+        MulticastPlayHitMontage();
+
+        // 2. 공격자가 있을 경우 컨트롤러 로직 실행 (서버에서만 실행)
+        if (DamageCauser)
+        {
+            ABaseAIController* AIC = Cast<ABaseAIController>(GetController());
+            if (AIC)
+            {
+                AIC->OnDamagedByPlayer(DamageCauser);
+            }
+        }
+    }
+
+    // 사망 판정
     if (CurrentHP <= 0.f)
     {
         Die();
     }
+
     return ActualDamage;
 }
 
-void ABaseAICharacter::Die()
+// 모든 클라이언트에서 피격 몽타주 재생
+void ABaseAICharacter::MulticastPlayHitMontage_Implementation()
+{
+   
+    if (bIsDead || !GetMesh()) return;
+
+    UAnimInstance* AnimInst = GetMesh()->GetAnimInstance();
+    if (!AnimInst) return;
+
+    
+    if (AppearancePresets.IsValidIndex(SelectedAppearanceIndex))
+    {
+        UAnimMontage* HitMontage = AppearancePresets[SelectedAppearanceIndex].HitMontage;
+
+        if (HitMontage)
+        {
+            
+            AnimInst->Montage_Play(HitMontage);
+        }
+    }
+}
+
+void ABaseAICharacter::Die() 
 {
     if (!HasAuthority() || bIsDead) return;
 
     bIsDead = true;
 
     ABaseAIController* AICon = Cast<ABaseAIController>(GetController());
-    if (AICon)
-    {
-        AICon->OnAICharacterDead();
-    }
+    if (AICon) AICon->OnAICharacterDead();
 
-    // [서버] 이동 중지 및 중력 영향 최소화
     if (GetCharacterMovement())
     {
         GetCharacterMovement()->StopMovementImmediately();
         GetCharacterMovement()->DisableMovement();
     }
 
-    // [서버] 충돌 설정 (캡슐만 먼저 끄고 메시는 애니메이션을 위해 둡니다)
     GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
     MulticastPlayDeath();
 }
-
 void ABaseAICharacter::MulticastPlayDeath_Implementation()
 {
     if (AppearancePresets.IsValidIndex(SelectedAppearanceIndex))
     {
         UAnimMontage* DeathAnim = AppearancePresets[SelectedAppearanceIndex].DeathMontage;
+        if (!DeathAnim) return;
 
-        // 1. 애니메이션 재생 전, 메시가 애니메이션을 끝까지 보여주도록 설정
-        GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision); // 쿼리만 끄거나 아예 건드리지 않음
-        GetMesh()->bNoSkeletonUpdate = false; // 업데이트 보장
+        UAnimInstance* AnimInst = GetMesh()->GetAnimInstance();
+        if (AnimInst && AnimInst->Montage_IsPlaying(DeathAnim)) return;
 
-        if (DeathAnim)
-        {
-            float Duration = PlayAnimMontage(DeathAnim);
+        GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        GetMesh()->bNoSkeletonUpdate = false;
 
-            // 델리게이트 바인딩
-            UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-            if (AnimInstance)
-            {
-                FOnMontageEnded MontageEndedDelegate;
-                MontageEndedDelegate.BindUObject(this, &ABaseAICharacter::StartDissolveAfterAnim);
-                AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, DeathAnim);
-            }
-        }
-        else
-        {
-            StartDissolveAfterAnim(nullptr, false);
-        }
+        PlayAnimMontage(DeathAnim);
+
     }
 }
 
-void ABaseAICharacter::StartDissolveAfterAnim(UAnimMontage* Montage, bool bInterrupted)
-{
-    USkeletalMeshComponent* MeshComp = GetMesh();
-    if (MeshComp && DissolveMasterMaterial)
-    {
-        // 다이내믹 인스턴스 생성
-        DynamicDissolveMaterial = MeshComp->CreateDynamicMaterialInstance(0, DissolveMasterMaterial);
-
-        if (DynamicDissolveMaterial)
-        {
-            // 시작 시 파라미터 초기화 (완전 불투명 상태에서 시작)
-            DynamicDissolveMaterial->SetScalarParameterValue(TEXT("DissolveAmount"), 0.0f);
-
-            // 블루프린트 타임라인 시작
-            BP_StartDissolveEffect();
-        }
-    }
-}
-
-// 블루프린트 타임라인의 'Update' 핀에 연결될 함수
 void ABaseAICharacter::UpdateDissolveParameter(float DissolveValue)
 {
     if (DynamicDissolveMaterial)
     {
-		// 'DissolveAmount' 파라미터 업데이트
         DynamicDissolveMaterial->SetScalarParameterValue(TEXT("DissolveAmount"), DissolveValue);
     }
 }
@@ -244,21 +230,53 @@ void ABaseAICharacter::OnRep_IsDead()
 {
     if (bIsDead)
     {
+       
         GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+        // MulticastPlayDeath(); 
     }
 }
 
 void ABaseAICharacter::FinishDying()
 {
-    
     if (HasAuthority())
     {
         Destroy();
     }
 }
 
-// UI 업데이트 필요 시 구현
-void ABaseAICharacter::OnRep_CurrentHP()
+
+void ABaseAICharacter::TriggerDissolveEffect()
 {
     
+    if (DynamicDissolveMaterial || !DissolveMasterMaterial) return;
+
+    USkeletalMeshComponent* MeshComp = GetMesh();
+    if (!MeshComp) return;
+
+   
+    MeshComp->SetPlayRate(0.0f); 
+    UAnimInstance* AnimInst = MeshComp->GetAnimInstance();
+    if (AnimInst)
+    {
+        AnimInst->Montage_Pause(nullptr); 
+    }
+
+  
+    MeshComp->bNoSkeletonUpdate = true;
+
+
+    DynamicDissolveMaterial = MeshComp->CreateDynamicMaterialInstance(0, DissolveMasterMaterial);
+
+    if (DynamicDissolveMaterial)
+    {
+        
+        BP_StartDissolveEffect();
+    }
+}
+
+
+void ABaseAICharacter::OnRep_CurrentHP()
+{
+   
 }

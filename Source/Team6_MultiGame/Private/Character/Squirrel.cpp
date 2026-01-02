@@ -13,6 +13,8 @@
 #include "TimerManager.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "CharacterGameMode/CharacterGameMode.h"
+#include "DrawDebugHelpers.h" 
+#include "Engine/World.h"
 
 // Sets default values
 ASquirrel::ASquirrel()
@@ -22,8 +24,7 @@ ASquirrel::ASquirrel()
     bReplicates = true;
     SetReplicateMovement(true);
     // ★ 서버에서 클라로 더 자주 보내게
-    NetUpdateFrequency = 100.f;        // 기본보다 크게 (예: 100)
-    MinNetUpdateFrequency = 30.f;      // 최소 보장 (예: 30)
+
     NetPriority = 3.f;                // 우선순위 상승
 
     // 협동 소규모 게임이면 켜도 됨(멀리 있어도 항상 relevant)
@@ -183,52 +184,106 @@ void ASquirrel::Move(const FVector2D& MoveInput)
 void ASquirrel::Fire_ServerAuth()
 {
     if (!HasAuthority()) return;
-    UE_LOG(LogTemp, Warning, TEXT("Fire_ServerAuth()->HasAuthority()"));
+    if (bIsDead)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Squirrle] Fire_ServerAuth: Squirrle is Dead"));
+        return;
+    }// [권장] 죽었으면 사격/몽타주 금지
+    if (!CurrentGun)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Squirrle] Fire_ServerAuth: Don't Have Gun!!"));
+        return;
+    }
+
+    // 1) 트레이스 시작점
+    const FVector Start = Camera
+        ? Camera->GetComponentLocation()
+        : GetActorLocation();
+
+    // 2) 트레이스 방향(카메라 회전값 사용)
+    const FRotator ViewRot = Camera
+        ? Camera->GetComponentRotation()
+        : FRotator(0.f, GetActorRotation().Yaw, 0.f); // 카메라 없으면 최소 폴백
+
+    const FVector End = Start + (ViewRot.Vector() * 5000.f);
+
+    FHitResult Hit;
+    FCollisionQueryParams Params(SCENE_QUERY_STAT(AimTrace), true, this);
+    Params.AddIgnoredActor(this);
+    if (CurrentGun) Params.AddIgnoredActor(CurrentGun);
+
+    const bool bHit = GetWorld()->LineTraceSingleByChannel(
+        Hit, Start, End, ECC_Visibility, Params
+    );
+
+    const FVector AimPoint = bHit ? Hit.ImpactPoint : End;
 
 
-    //if (!EquippedGun) return;
-    if (!CurrentGun) return;
-   
-    UE_LOG(LogTemp, Warning, TEXT("Fire_ServerAuth()->EquippedGun"));
-    // 너의 기존 방식대로 서버가 가진 조준값으로 AimRot 구성
-    const FRotator AimRot(RepViewRot.Pitch, GetActorRotation().Yaw, 0.f);
+    // 2) "도착 지점"을 총에 넘김
+    CurrentGun->HandleFire(AimPoint);
 
-    // PC 의존 제거 버전
-    //EquippedGun->HandleFire(AimRot);
-
-    CurrentGun->HandleFire(AimRot);
-    UE_LOG(LogTemp, Warning, TEXT("[Camera] Fire:Fire_ServerAuth()->WeaponFire"));
+    // 몽타주 재생(모든 클라)
+    Multicast_PlayFireMontage();
 }
+
+
+
+void ASquirrel::Multicast_PlayFireMontage_Implementation()
+{
+    // 데디케이트 서버는 애니 의미 없음
+    if (GetNetMode() == NM_DedicatedServer)
+        return;
+
+    if (bIsDead) return;
+    if (!FireMontage) return;
+
+    if (USkeletalMeshComponent* MeshComp = GetMesh())
+    {
+        if (UAnimInstance* Anim = MeshComp->GetAnimInstance())
+        {
+            Anim->Montage_Play(FireMontage, FireMontagePlayRate);
+        }
+    }
+}
+
 
 void ASquirrel::RequestDash_ServerAuth()
 {
     if (!HasAuthority())
         return;
 
-    const float Now = GetWorld()->GetTimeSeconds();
-
-    // 1) 쿨다운 잠금
-    if (Now < NextDashAllowedTime)
+    // bIsDash == true 일 때만 대쉬 허용 (쿨타임 관리)
+    if (!bIsDash)
         return;
 
-    // 2) 이미 대쉬 중이면 중복 시작 방지(원하면 허용도 가능)
-    if (bIsDash)
-        return;
+    // 지금부터 쿨타임 시작: 다시 못 쓰게 잠금
+    bIsDash = false;
+    ForceNetUpdate(); // 필요하면 (UI 표시/로그용)
 
-    // 3) 대쉬 시작
-    bIsDash = true;
-    ForceNetUpdate();
+    UE_LOG(LogTemp, Warning, TEXT("[OnRep_IsDash] %s bIsDash=%d"), *GetName(), bIsDash);
+    // 1) 속도 올리기
+    if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+    {
+        MoveComp->MaxWalkSpeed = DashSpeed;
+    }
 
-    // 4) 5초 잠금 시작
-    NextDashAllowedTime = Now + DashCooldownTime;
-
-    // 5) 일정 시간 후 자동 종료(중요: true를 “한 프레임”만 주면 복제에서 놓칠 수 있음)
+    // 2) DashActiveTime 후 속도 원복
     GetWorldTimerManager().ClearTimer(DashEndTimerHandle);
     GetWorldTimerManager().SetTimer(
         DashEndTimerHandle,
         this,
         &ASquirrel::EndDash_ServerAuth,
         DashActiveTime,
+        false
+    );
+
+    // 3) DashCooldownTime 후 다시 대쉬 가능하게
+    GetWorldTimerManager().ClearTimer(DashCooldownTimerHandle);
+    GetWorldTimerManager().SetTimer(
+        DashCooldownTimerHandle,
+        this,
+        &ASquirrel::ResetDashCooldown_ServerAuth,
+        DashCooldownTime,
         false
     );
 }
@@ -243,9 +298,19 @@ void ASquirrel::EndDash_ServerAuth()
     if (!HasAuthority())
         return;
 
-    bIsDash = false;
-    ForceNetUpdate();
+    // 속도 원복(현재 조깅 상태에 맞게)
+    ApplySprintSpeed();
 }
+
+void ASquirrel::ResetDashCooldown_ServerAuth()
+{
+    if (!HasAuthority())
+        return;
+
+    bIsDash = true;
+    ForceNetUpdate(); // 필요하면
+}
+
 
 // (선택) 로그/디버그용
 void ASquirrel::OnRep_HP()
@@ -471,7 +536,12 @@ void ASquirrel::BeginPlay()
 {
     Super::BeginPlay();
 
-
+    if (HasAuthority())
+    {
+        bIsDash = true;
+        ApplySprintSpeed();
+        ForceNetUpdate();
+    }
 }
 
 // Called every frame

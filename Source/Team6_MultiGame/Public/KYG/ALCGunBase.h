@@ -22,7 +22,9 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void BeginPlay() override;
 
-	void HandleFire(const FRotator& AimRot);
+	void HandleFire(const FVector& AimRot);
+
+
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<class AALCProjectileBase> ProjectileClass;
@@ -47,8 +49,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Muzzle")
 	FVector MuzzleFallbackOffset = FVector(30.f, 0.f, 10.f);
 
-	// 내부 유틸: 스폰 트랜스폼 계산
-	void GetMuzzleTransform(const FRotator& AimRot, FVector& OutLoc, FRotator& OutRot, bool& bOutUsedSocket) const;
 
 	float LastFireTime;
 
@@ -62,4 +62,8 @@ protected:
 	// 현재 남은 탄 수 Replicate 해서 HUD 등에 쓸 수 있게
 	UPROPERTY(Replicated, VisibleAnywhere, Category = "Weapon|Ammo")
 	int32 CurrentAmmo = 0;
+
+	//최대사거리
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon|Range")
+	float MaxRange = 3000.f;
 };

@@ -3,6 +3,8 @@
 #include "KYG/ALCProjectileBase.h"
 #include "Components/SphereComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraComponent.h"   
 //#include "KYG/LCDamageable.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -38,6 +40,9 @@ AALCProjectileBase::AALCProjectileBase()
 	MovementComp->InitialSpeed = 3000.f;
 	MovementComp->MaxSpeed = 3000.f;
 	MovementComp->ProjectileGravityScale = 0.f;	//중력 영향 x
+
+	// 자동 제거 
+	SetLifeSpan(1.0f);
 }
 
 void AALCProjectileBase::BeginPlay()
@@ -52,6 +57,24 @@ void AALCProjectileBase::BeginPlay()
 		(int32)GetLocalRole());
 
 	SpawnLocation = GetActorLocation();
+
+	// 클라이언트(또는 리슨의 로컬)에서만 트레일 붙이기
+	if (LaserVFX && RootComponent)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAttached(
+			LaserVFX,
+			RootComponent,                 // CollisionComp(=Root)에 붙음
+			NAME_None,
+			FVector::ZeroVector,
+			FRotator::ZeroRotator,
+			EAttachLocation::KeepRelativeOffset,
+			true,                          // bAutoDestroy
+			true,                          // bAutoActivate
+			ENCPoolMethod::None,
+			true
+		);
+	}
+
 }
 
 //발사 초기 세팅 데미지 크기, 방향, 속도

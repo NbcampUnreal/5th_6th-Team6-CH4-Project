@@ -4,6 +4,7 @@
 #include "BehaviorTree/BehaviorTreeComponent.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
+#include "Perception/AISenseConfig_Hearing.h" // 누락된 헤더 추가
 #include "AI/BaseAICharacter.h" 
 
 ABaseAIController::ABaseAIController()
@@ -12,22 +13,18 @@ ABaseAIController::ABaseAIController()
 
     AIPerception = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("AIPerception"));
 
-    // 1. 시각 설정 구성
     SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
     if (SightConfig)
     {
-        SightConfig->SightRadius = 1000.0f;
-        SightConfig->LoseSightRadius = 1200.0f;
+        SightConfig->SightRadius = 1200.0f;
+        SightConfig->LoseSightRadius = 1500.0f;
         SightConfig->PeripheralVisionAngleDegrees = 90.0f;
-
         SightConfig->DetectionByAffiliation.bDetectEnemies = true;
         SightConfig->DetectionByAffiliation.bDetectNeutrals = true;
         SightConfig->DetectionByAffiliation.bDetectFriendlies = true;
-
         AIPerception->ConfigureSense(*SightConfig);
     }
 
-    // 2. 청각 설정 구성 
     HearingConfig = CreateDefaultSubobject<UAISenseConfig_Hearing>(TEXT("HearingConfig"));
     if (HearingConfig)
     {
@@ -35,20 +32,18 @@ ABaseAIController::ABaseAIController()
         HearingConfig->DetectionByAffiliation.bDetectEnemies = true;
         HearingConfig->DetectionByAffiliation.bDetectNeutrals = true;
         HearingConfig->DetectionByAffiliation.bDetectFriendlies = true;
-
         AIPerception->ConfigureSense(*HearingConfig);
     }
 
     if (SightConfig)
-        {
+    {
         AIPerception->SetDominantSense(SightConfig->GetSenseImplementation());
-	    }
+    }
 }
 
-void ABaseAIController::OnPossess(APawn* InPawn)
+void ABaseAIController::OnPossess(APawn* InPawn) 
 {
     Super::OnPossess(InPawn);
-
     if (HasAuthority())
     {
         if (BehaviorTreeAsset)
@@ -58,53 +53,84 @@ void ABaseAIController::OnPossess(APawn* InPawn)
 
         if (AIPerception)
         {
-            // 중복 바인딩 방지 후 등록
-            AIPerception->OnTargetPerceptionUpdated.RemoveDynamic(this, &ABaseAIController::OnTargetDetected);
-            AIPerception->OnTargetPerceptionUpdated.AddDynamic(this, &ABaseAIController::OnTargetDetected);
+            AIPerception->OnTargetPerceptionUpdated.AddUniqueDynamic(this, &ABaseAIController::OnTargetDetected);
         }
     }
 }
 
 void ABaseAIController::OnTargetDetected(AActor* Actor, FAIStimulus Stimulus)
 {
-    if (!HasAuthority()) return;
+    if (!HasAuthority() || !Actor) return;
     UBlackboardComponent* BBComp = GetBlackboardComponent();
     if (!BBComp) return;
 
+    if (!Actor->ActorHasTag(TEXT("Player"))) return;
+
     if (Stimulus.WasSuccessfullySensed())
     {
-        // 1. 시각 감지
+        // 플레이어를 감지했을 때
         if (Stimulus.Type == UAISense::GetSenseID<UAISense_Sight>())
         {
-            if (Actor && Actor->ActorHasTag(TEXT("Player")))
-            {
-                BBComp->SetValueAsObject(TargetActorKeyName, Actor);
-                SetFocus(Actor); // 플레이어 주시
-                UE_LOG(LogTemp, Warning, TEXT("Player Spotted! Focusing..."));
-            }
+            BBComp->SetValueAsObject(TargetActorKeyName, Actor);
+            SetFocus(Actor);
         }
-        // 2. 청각 감지
         else if (Stimulus.Type == UAISense::GetSenseID<UAISense_Hearing>())
         {
+            
             if (BBComp->GetValueAsObject(TargetActorKeyName) == nullptr)
             {
-                BBComp->SetValueAsVector(TEXT("TargetLocation"), Stimulus.StimulusLocation);
+                BBComp->SetValueAsVector(TargetLocationKeyName, Stimulus.StimulusLocation);
             }
         }
     }
     else
     {
-        // 시야에서 놓쳤을 때 바로 지우지 말고 "마지막 위치"로 기록
+		//  플레이어를 놓쳤을 때
         if (Stimulus.Type == UAISense::GetSenseID<UAISense_Sight>())
         {
             ClearFocus(EAIFocusPriority::Gameplay);
 
-           
-            BBComp->SetValueAsVector(TEXT("TargetLocation"), Actor->GetActorLocation());
+			//  마지막 위치 저장
+            BBComp->SetValueAsVector(TargetLocationKeyName, Actor->GetActorLocation());
+			// 타겟 초기화
+            BBComp->ClearValue(TargetActorKeyName);
+        }
+    }
+}
+
+// 피격 시 호출되는 로직
+void ABaseAIController::OnDamagedByPlayer(AActor* Attacker)
+{
+    if (!HasAuthority() || !Attacker || !GetPawn()) return;
+
+    // 1. 현재 모든 동작 중지
+    StopMovement();
+
+    // 2. 타겟을 향한 회전값 직접 계산
+    FVector Dir = Attacker->GetActorLocation() - GetPawn()->GetActorLocation();
+    Dir.Z = 0.0f;
+    FRotator TargetRot = Dir.Rotation();
+
+    
+    SetControlRotation(TargetRot);
+
+    
+    UBlackboardComponent* BBComp = GetBlackboardComponent();
+    if (BBComp)
+    {
+        BBComp->SetValueAsObject(TargetActorKeyName, Attacker);
 
       
-            // BBComp->ClearValue(TargetActorKeyName); 
-        }
+        SetFocus(Attacker, EAIFocusPriority::Gameplay);
+    }
+
+   
+    GetPawn()->SetActorRotation(TargetRot);
+
+   
+    if (AIPerception)
+    {
+        AIPerception->RequestStimuliListenerUpdate();
     }
 }
 
@@ -112,23 +138,13 @@ void ABaseAIController::OnAICharacterDead()
 {
     if (!HasAuthority()) return;
 
-    // 1. 비헤이비어 트리 정지
     UBehaviorTreeComponent* BTComp = Cast<UBehaviorTreeComponent>(BrainComponent);
-    if (BTComp)
-    {
-        BTComp->StopTree(EBTStopMode::Safe);
-    }
+    if (BTComp) BTComp->StopTree(EBTStopMode::Safe);
 
-    // 2. 블랙보드 타겟 정보 삭제
     UBlackboardComponent* BBComp = GetBlackboardComponent();
-    if (BBComp)
-    {
-        BBComp->ClearValue(TargetActorKeyName);
-    }
+    if (BBComp) BBComp->ClearValue(TargetActorKeyName);
 
-    // 3. 인지 시스템 비활성화
-    if (AIPerception)
-    {
-        AIPerception->Deactivate();
-    }
+    if (AIPerception) AIPerception->Deactivate();
+
+    ClearFocus(EAIFocusPriority::Gameplay);
 }

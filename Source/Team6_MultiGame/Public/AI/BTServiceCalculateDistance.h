@@ -13,6 +13,6 @@ public:
     UBTServiceCalculateDistance();
 
 protected:
-    // 주기적으로 실행될 함수
+   
     virtual void TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds) override;
 };

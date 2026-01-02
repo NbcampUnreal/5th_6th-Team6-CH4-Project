@@ -6,6 +6,7 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAICharacterDeadSignature, AActor*, DeadActor);
 
+// AI 외형 설정 구조체
 USTRUCT(BlueprintType)
 struct FAIAppearanceSet
 {
@@ -19,6 +20,9 @@ struct FAIAppearanceSet
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     class UAnimMontage* AttackMontage = nullptr;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    UAnimMontage* HitMontage  = nullptr;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     class UAnimMontage* DeathMontage = nullptr;
@@ -52,6 +56,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "AI|Combat")
     void PlayAttackMontage();
 
+    UFUNCTION(NetMulticast, Unreliable)
+    void MulticastPlayHitMontage();
+
     UFUNCTION(BlueprintCallable, Category = "AI|Combat")
     void OnAttackHitCheck();
 
@@ -64,6 +71,9 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "AI|Death")
     void FinishDying();
+
+    UFUNCTION(BlueprintCallable, Category = "AI|Death")
+    void TriggerDissolveEffect();
 
 protected:
     virtual void BeginPlay() override;

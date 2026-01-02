@@ -4,11 +4,15 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "NiagaraSystem.h"
 #include "ALCProjectileBase.generated.h"
 
 
 class USphereComponent;
 class UProjectileMovementComponent;
+class UNiagaraSystem;
+class UNiagaraComponent;
+
 
 UCLASS()
 class TEAM6_MULTIGAME_API AALCProjectileBase : public AActor
@@ -39,6 +43,11 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Projectile")
 	FVector SpawnLocation;
+
+
+	// 에디터에서 골라줄 VFX
+	UPROPERTY(EditDefaultsOnly, Category = "VFX")
+	UNiagaraSystem* LaserVFX;
 
 	virtual void BeginPlay() override;
 
